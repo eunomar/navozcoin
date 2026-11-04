@@ -1,0 +1,15 @@
+node_modules/
+.npm-cache/
+.vercel/
+.env
+.env.local
+.env.*.local
+!.env.example
+*.log
+coverage/
+shots/
+.chrome-profile/
+.dsh/
+tmp/
+.DS_Store
+Thumbs.db

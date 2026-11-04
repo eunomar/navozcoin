@@ -1,0 +1,19 @@
+{
+  "name": "navozcoin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NavozCoin — gestão de família gamer com MongoDB Atlas e função serverless",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npx vercel dev",
+    "seed": "node scripts/seed.js",
+    "seed:reset": "node scripts/seed.js --reset",
+    "check": "node scripts/check.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "mongodb": "^6.12.0"
+  }
+}
