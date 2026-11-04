@@ -25,21 +25,23 @@ Vercel Function  api/index.js
 - **`index.html`** — 100% da interface e da lógica visual. Nenhuma dependência de React/Vue/Angular.
 - **`api/index.js`** — entrada serverless. O `vercel.json` encaminha `/api/*` para ela preservando a rota.
 - **`server/`** — camada de acesso e regras de negócio, usada apenas no servidor.
-- **`scripts/seed.js`** — cria a demonstração completa.
+- **`scripts/init.js`** — cria índices e o administrador, sem dados de teste.
+- **`scripts/reset.js`** — zera os dados operacionais preservando administradores.
+- **`scripts/seed.js`** — modo demonstração opcional, nunca usado em produção.
 - **`scripts/check.js`** — diagnostica conexão, índices e consistência do ledger.
 
 > Para que os botões funcionem de ponta a ponta, o `index.html` precisa ser servido pela mesma origem da função `/api` (Vercel ou `vercel dev`). Abrir o arquivo diretamente via `file://` não funciona para operações de banco.
 
 ---
 
-## 2. Login padrão da demonstração
+## 2. Login do administrador
 
 ```text
 Usuário: Navoz
 Senha:   Navoz
 ```
 
-O administrador é criado pelo seed com `ADMIN_USERNAME` / `ADMIN_PASSWORD`. **Troque a senha no primeiro acesso**, pelo menu do administrador → *Alterar senha*. A sessão usa cookie `HttpOnly`, CSRF e expira em 8 horas.
+O administrador é criado por `npm run init` (ou pelo `seed` opcional) com `ADMIN_USERNAME` / `ADMIN_PASSWORD`. **Troque a senha no primeiro acesso**, pelo menu do administrador → *Alterar senha*. A sessão usa cookie `HttpOnly`, CSRF e expira em 8 horas.
 
 Não existe cadastro público de administradores.
 
@@ -56,7 +58,7 @@ Não existe cadastro público de administradores.
 
 ## 4. Configurar o MongoDB Atlas
 
-1. Crie um cluster gratuito no Atlas (M0 é suficiente para a demonstração).
+1. Crie um cluster gratuito no Atlas (M0 é suficiente para este sistema).
 2. Em **Database Access**, crie um usuário de banco com permissão `readWrite` no banco `navozcoin`.
 3. Em **Network Access**, adicione uma entrada de IP. Para a Vercel, que usa IPs dinâmicos, a forma prática é `0.0.0.0/0` (restrinja depois se usar IP estático/Secure Compute).
 4. Em **Connect → Drivers**, copie a string `mongodb+srv://...`.
@@ -68,7 +70,7 @@ mongodb+srv://USUARIO:SENHA@cluster0.xxxxx.mongodb.net/navozcoin?retryWrites=tru
 
 Se a senha tiver caracteres especiais, faça o URL-encode (`@`, `#`, `/`, `:` etc.).
 
-O banco, as coleções e os índices são criados automaticamente pelo seed. Não é necessário criar nada manualmente no Atlas.
+O banco, as coleções e os índices são criados automaticamente por `npm run init` (ou pelo seed). Não é necessário criar nada manualmente no Atlas.
 
 ### Variáveis de ambiente
 
@@ -88,8 +90,8 @@ Copy-Item .env.example .env.local
 |---|---|---|
 | `MONGODB_URI` | sim | String de conexão do Atlas, com o banco `navozcoin` |
 | `MONGODB_DB` | não | Nome do banco; padrão `navozcoin` |
-| `ADMIN_USERNAME` | não | Usuário criado pelo seed; padrão `Navoz` |
-| `ADMIN_PASSWORD` | não | Senha criada pelo seed; padrão `Navoz` |
+| `ADMIN_USERNAME` | não | Usuário criado pelo init/seed; padrão `Navoz` |
+| `ADMIN_PASSWORD` | não | Senha criada pelo init/seed; padrão `Navoz` |
 | `ADMIN_DISPLAY_NAME` | não | Nome exibido no painel |
 | `APP_ORIGIN` | recomendado | Origem exata do deploy, ex.: `https://navozcoin.vercel.app` |
 | `APP_TIMEZONE` | não | Fuso operacional; padrão `America/Sao_Paulo` |
@@ -100,33 +102,39 @@ Copy-Item .env.example .env.local
 
 ---
 
-## 5. Instalar e criar os dados fictícios
+## 5. Preparar o banco (estado zerado)
 
 ```bash
 npm install
-npm run seed      # cria a demo somente se o banco estiver vazio
+npm run init      # cria índices + administrador; NÃO cria dados de teste
 npm run check     # valida conexão, índices e ledger
 ```
 
-Para recriar a demonstração do zero (apaga apenas as coleções do NavozCoin):
+O banco de produção já está no estado zerado: existe apenas o administrador
+`Navoz`, sem membros, eventos, temporadas, presentes, resgates ou pontos.
+A partir do login, cadastre a primeira temporada/membro e comece a operar.
+
+### Zerar novamente
 
 ```bash
-npm run seed:reset
+npm run reset       # pede confirmação (digite ZERAR)
+npm run reset:force # sem confirmação
 ```
 
-O seed cria:
+O reset preserva os administradores e remove membros, eventos, presenças,
+transações, presentes, resgates, temporadas, auditoria, sessões e rate limits.
 
-- 1 administrador (`Navoz` / `Navoz` por padrão);
-- 14 membros, sendo 12 ativos e 2 arquivados;
-- 4 temporadas (3 encerradas e 1 ativa);
-- 13 eventos (8 finalizados, 4 agendados, 1 cancelado);
-- 9 presentes, com estoque, indisponibilidade e item arquivado;
-- 8 resgates nos quatro estados;
-- 85 transações financeiras consistentes;
-- 74+ registros de auditoria;
-- pontos, ranking, histórico, reservas e carteiras coerentes.
+### Modo demonstração (opcional)
 
-Todos os valores são fictícios.
+Para carregar novamente os dados fictícios em um ambiente de testes:
+
+```bash
+npm run seed        # somente se o banco estiver sem membros
+npm run seed:reset  # apaga as coleções operacionais e recria a demo
+```
+
+O modo demo cria 14 membros, 4 temporadas, 13 eventos, 9 presentes, 8 resgates,
+85 transações e 74 registros de auditoria. **Não rode isso em produção.**
 
 ### Diagnóstico do ledger
 
@@ -150,7 +158,7 @@ npm run dev
 Abra **http://localhost:3000**. O script [`scripts/dev-server.js`](scripts/dev-server.js) serve o `index.html` e executa o mesmo handler serverless localmente, usando o Atlas. Não precisa de login na Vercel, link de projeto nem `vercel dev`.
 
 ```bash
-npm run seed       # apenas se o banco estiver vazio
+npm run init       # apenas em banco novo; idempotente
 npm run check      # diagnóstico opcional de conexão e ledger
 ```
 
@@ -383,7 +391,9 @@ A finalização de evento credita cada presente em uma transação individual e 
 ├── scripts/
 │   ├── dev-server.js          # localhost sem Vercel CLI (somente dev)
 │   ├── deploy.js              # envia env + deploy + health check
-│   ├── seed.js                # dados fictícios
+│   ├── init.js                # índices + admin, sem dados
+│   ├── reset.js               # zera dados operacionais
+│   ├── seed.js                # demo opcional (não usar em produção)
 │   ├── check.js               # diagnóstico de consistência
 │   └── load-env.js            # leitor de .env.local para scripts
 ├── docs/
@@ -407,7 +417,7 @@ A finalização de evento credita cada presente em uma transação individual e 
 | 403 “Origem não autorizada” | `APP_ORIGIN` não corresponde à URL acessada | Ajuste a variável e faça novo deploy |
 | 403 “Token de segurança inválido” | página aberta há muito tempo / CSRF expirado | recarregue e entre novamente |
 | 401 ao navegar | sessão expirada (8h) | faça login novamente |
-| Dashboard zerado | seed não executado | `npm run seed` |
+| Dashboard zerado | banco novo, ainda sem operação | esperado; cadastre temporada e membros (ou rode `npm run init`) |
 | Erro “Transaction numbers are only allowed on a replica set” | Mongo local standalone | use Atlas ou um replica set |
 | Imagens externas não aparecem | bloqueio de rede/CSP do provedor | use URLs HTTPS válidas |
 | `path` não chega na API | rewrite ausente | mantenha o `vercel.json` publicado |
@@ -428,7 +438,7 @@ A finalização de evento credita cada presente em uma transação individual e 
 
 - [ ] `npm run deploy` concluído e `/api/health` retornando `ok: true`.
 - [ ] `npm run check` sem divergências.
-- [ ] Login com o administrador do seed.
+- [ ] Login com o administrador cadastrado.
 - [ ] Senha padrão alterada.
 - [ ] Um evento de teste finalizado e conferido no histórico.
 - [ ] Um resgate de teste aprovado/recusado.

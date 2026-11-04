@@ -741,8 +741,8 @@
       <div class="px-4 pb-3">
         <div id="sidebar-season" class="rounded-lg border border-gold/15 bg-gold/[.04] px-3 py-2.5">
           <div class="flex items-center gap-2">
-            <span class="pulse-dot"></span>
-            <span class="text-[9px] uppercase tracking-[.16em] text-gold/80 font-bold">Temporada ativa</span>
+            <span id="season-status-dot" class="pulse-dot"></span>
+            <span id="season-status-label" class="text-[9px] uppercase tracking-[.16em] text-gold/80 font-bold">Temporada ativa</span>
           </div>
           <div id="sidebar-season-name" class="mt-1 text-[12px] font-semibold text-slate-200 truncate">—</div>
         </div>
@@ -1378,13 +1378,32 @@
 
       function updateSeasonUI(season) {
         state.activeSeason = season || null;
-        const name = season ? season.name : 'Nenhuma temporada ativa';
+        const name = season ? season.name : 'Nenhuma ativa';
         ['#sidebar-season-name', '#topbar-season-name'].forEach((selector) => {
           const element = $(selector);
           if (element) element.textContent = name;
         });
         const topbar = $('#topbar-season');
         if (topbar) topbar.style.display = season ? '' : 'none';
+
+        const card = $('#sidebar-season');
+        const label = $('#season-status-label');
+        const dot = $('#season-status-dot');
+        if (card) {
+          card.classList.toggle('border-gold/15', Boolean(season));
+          card.classList.toggle('bg-gold/[.04]', Boolean(season));
+          card.classList.toggle('border-white/8', !season);
+          card.classList.toggle('bg-white/[.025]', !season);
+        }
+        if (label) {
+          label.textContent = season ? 'Temporada ativa' : 'Crie uma temporada';
+          label.classList.toggle('text-gold/80', Boolean(season));
+          label.classList.toggle('text-slate-500', !season);
+        }
+        if (dot) {
+          dot.classList.toggle('pulse-dot', Boolean(season));
+          dot.classList.toggle('bg-slate-600', !season);
+        }
       }
 
       function updateRedemptionBadge(count) {
@@ -1555,6 +1574,9 @@
         const adminName = (state.admin.displayName || state.admin.username).split(' ')[0];
         const nextEvent = data.upcomingEvents[0];
         const maxTop = data.topMembers.length ? Number(data.topMembers[0].totalEarned || 1) : 1;
+        const chartHasData = [...data.chart.distributed, ...data.chart.redeemed].some(
+          (value) => Number(value) > 0
+        );
 
         $('#page').innerHTML = `
           <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-7 fade-up">
@@ -1595,7 +1617,13 @@
                   <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-gold"></span> Resgatados</span>
                 </div>
               </div>
-              <div class="chart-wrap"><canvas id="dashboard-chart" aria-label="Gráfico de pontuação dos últimos 14 dias"></canvas></div>
+              ${chartHasData
+                ? '<div class="chart-wrap"><canvas id="dashboard-chart" aria-label="Gráfico de pontuação dos últimos 14 dias"></canvas></div>'
+                : `<div class="h-[290px] rounded-xl border border-dashed border-white/8 bg-black/15 flex flex-col items-center justify-center text-center px-6">
+                    <div class="empty-icon"><i data-lucide="chart-no-axes-column"></i></div>
+                    <div class="text-[12px] font-semibold text-slate-300 mt-3">Nenhuma pontuação nos últimos 14 dias</div>
+                    <p class="text-[10.5px] text-slate-600 mt-1 max-w-xs leading-relaxed">Finalize um evento ou faça um lançamento manual para o gráfico começar a contar.</p>
+                  </div>`}
             </section>
 
             <section class="panel p-5 sm:p-6 fade-up delay-2">
@@ -1699,7 +1727,7 @@
           </div>`;
 
         refreshIcons();
-        initDashboardChart(data.chart);
+        if (chartHasData) initDashboardChart(data.chart);
 
         const newEventButton = $('[data-dashboard-new-event]');
         if (newEventButton) {
