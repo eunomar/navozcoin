@@ -18,8 +18,10 @@ Administradores do painel.
 | `usernameLower` | string | usado na busca; único |
 | `displayName` | string | nome mostrado no painel |
 | `passwordHash` | string | bcrypt, cost 12 |
-| `role` | string | `owner` / `admin` |
+| `role` | string | `owner` (principal) / `admin` (secundário) |
 | `active` | boolean | administrador ativo |
+| `permissions` | array | permissões no formato `module:view` / `module:manage` (ignorado para `owner`, que tem acesso total) |
+| `createdBy` | ObjectId → `admins` | quem criou o secundário |
 | `lastLoginAt` | Date | último login |
 | `createdAt` / `updatedAt` | Date | timestamps |
 
@@ -70,6 +72,10 @@ Membros da família. Arquivamento é lógico; o documento nunca é apagado.
 | `totalEarned` | int | pontos históricos para ranking |
 | `totalSpent` | int | pontos gastos em resgates aprovados |
 | `eventsParticipated` | int | eventos finalizados com presença |
+| `robberyCards` | int | total manual de cartões de roubo |
+| `robberyCardsUpdatedAt` | Date | última atualização do total |
+| `robberyCardsUpdatedBy` | ObjectId → `admins` | responsável pela última atualização |
+| `robberyCardsUpdatedByName` | string | snapshot do responsável |
 | `createdAt` / `updatedAt` | Date | |
 | `createdBy` | ObjectId → `admins` | |
 | `archivedAt` / `archivedBy` | Date / ObjectId | preenchidos no arquivamento |
@@ -79,6 +85,7 @@ Membros da família. Arquivamento é lógico; o documento nunca é apagado.
 - `uniq_player_id` — `{ playerId: 1 }` único
 - `status_joined` — `{ status: 1, joinedAt: -1 }`
 - `status_earned` — `{ status: 1, totalEarned: -1 }`
+- `robbery_cards` — `{ robberyCards: -1 }`
 - `search_text` — text index em `nickname` e `playerId`
 
 Invariantes:
@@ -297,6 +304,10 @@ Trilha append-only de operações administrativas.
 - `admin_created` — `{ adminId: 1, createdAt: -1 }`
 - `entity` — `{ entityType: 1, entityId: 1, createdAt: -1 }`
 
+Ações novas incluídas:
+- `robbery_cards.updated` — alteração manual do total de cartões de roubo;
+- `admin.created`, `admin.updated`, `admin.deactivated`, `admin.reactivated` — gestão de administradores.
+
 Não há endpoint de update/delete.
 
 ---
@@ -313,6 +324,29 @@ Não há endpoint de update/delete.
 | `expiresAt` | Date | TTL |
 
 Índice: `ttl_expires` — TTL em `expiresAt`.
+
+---
+
+## Permissões de administradores
+
+Módulos disponíveis para concessão:
+
+| Módulo | Chave | Permite gerenciar? |
+|---|---|:---:|
+| Visão geral | `dashboard` | não |
+| Membros | `members` | sim |
+| Eventos | `events` | sim |
+| Ranking | `ranking` | não |
+| Pontuação | `points` | sim |
+| Cartões de Roubo | `robbery` | sim |
+| Loja | `rewards` | sim |
+| Resgates | `redemptions` | sim |
+| Temporadas | `seasons` | sim |
+| Auditoria | `audit` | não |
+
+Formato armazenado: `["members:view", "members:manage", "robbery:manage", ...]`.
+`manage` implica `view`; o servidor normaliza e valida cada permissão. O módulo
+de administradores não é concedível e pertence exclusivamente ao `owner`.
 
 ---
 

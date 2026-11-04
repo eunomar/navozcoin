@@ -106,6 +106,7 @@ async function ensureIndexes() {
         { key: { playerId: 1 }, name: 'uniq_player_id', unique: true },
         { key: { status: 1, joinedAt: -1 }, name: 'status_joined' },
         { key: { status: 1, totalEarned: -1 }, name: 'status_earned' },
+        { key: { robberyCards: -1 }, name: 'robbery_cards' },
         { key: { nickname: 'text', playerId: 'text' }, name: 'search_text' },
       ]),
       events.createIndexes([

@@ -428,6 +428,8 @@ function publicAdmin(admin) {
     username: admin.username,
     displayName: admin.displayName,
     role: admin.role,
+    active: Boolean(admin.active),
+    permissions: admin.role === 'owner' ? [] : admin.permissions || [],
     lastLoginAt: admin.lastLoginAt || null,
   };
 }

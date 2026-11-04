@@ -49,6 +49,24 @@ const EVENT_CATEGORIES = [
 ];
 const MEMBER_ROLES = ['Líder', 'Vice-Líder', 'Oficial', 'Membro', 'Recruta', 'Convidado'];
 
+/**
+ * Módulos que o administrador principal pode liberar para administradores
+ * secundários. O gerenciamento de administradores é sempre exclusivo do owner.
+ */
+const ADMIN_MODULES = [
+  { key: 'dashboard', label: 'Visão geral', group: 'Painel', manageable: false },
+  { key: 'members', label: 'Membros', group: 'Painel', manageable: true },
+  { key: 'events', label: 'Eventos', group: 'Painel', manageable: true },
+  { key: 'ranking', label: 'Ranking', group: 'Painel', manageable: false },
+  { key: 'points', label: 'Pontuação', group: 'Gestão', manageable: true },
+  { key: 'robbery', label: 'Cartões de Roubo', group: 'Gestão', manageable: true },
+  { key: 'rewards', label: 'Loja', group: 'Gestão', manageable: true },
+  { key: 'redemptions', label: 'Resgates', group: 'Gestão', manageable: true },
+  { key: 'seasons', label: 'Temporadas', group: 'Gestão', manageable: true },
+  { key: 'audit', label: 'Auditoria', group: 'Sistema', manageable: false },
+];
+const MODULE_BY_KEY = new Map(ADMIN_MODULES.map((module) => [module.key, module]));
+
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -100,7 +118,46 @@ function methodNotAllowed(res, allowed) {
   throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Método não permitido.');
 }
 
-async function requireAdmin(req, mutation) {
+function hasPermission(admin, moduleKey, action = 'view') {
+  if (!admin) return false;
+  if (admin.role === 'owner') return true;
+  const permissions = Array.isArray(admin.permissions) ? admin.permissions : [];
+  if (permissions.includes(`${moduleKey}:manage`)) return true;
+  return action === 'view' && permissions.includes(`${moduleKey}:view`);
+}
+
+function normalizePermissions(input) {
+  if (input === undefined) return [];
+  if (!Array.isArray(input)) {
+    throw new HttpError(422, 'VALIDATION_ERROR', 'Permissões devem ser uma lista.');
+  }
+  const result = new Set();
+  for (const raw of input) {
+    if (typeof raw !== 'string') {
+      throw new HttpError(422, 'VALIDATION_ERROR', 'Permissão inválida.');
+    }
+    const [moduleKey, action, extra] = raw.split(':');
+    if (extra !== undefined || !MODULE_BY_KEY.has(moduleKey)) {
+      throw new HttpError(422, 'VALIDATION_ERROR', `Módulo inválido: ${raw}.`);
+    }
+    const module = MODULE_BY_KEY.get(moduleKey);
+    if (action === 'manage' && !module.manageable) {
+      throw new HttpError(
+        422,
+        'VALIDATION_ERROR',
+        `O módulo ${module.label} permite apenas visualização.`
+      );
+    }
+    if (action !== 'view' && action !== 'manage') {
+      throw new HttpError(422, 'VALIDATION_ERROR', `Ação inválida em ${raw}.`);
+    }
+    result.add(`${moduleKey}:view`);
+    if (action === 'manage') result.add(`${moduleKey}:manage`);
+  }
+  return Array.from(result).sort();
+}
+
+async function requireAdmin(req, mutation, moduleKey = null) {
   const auth = await authenticate(req, { requireCsrf: mutation });
   if (mutation) {
     const limited = await applySessionRateLimit(auth.session);
@@ -108,7 +165,39 @@ async function requireAdmin(req, mutation) {
       throw new HttpError(429, 'RATE_LIMITED', 'Muitas operações. Aguarde alguns instantes.');
     }
   }
+  if (moduleKey && !hasPermission(auth.admin, moduleKey, mutation ? 'manage' : 'view')) {
+    throw new HttpError(
+      403,
+      'MODULE_FORBIDDEN',
+      'Seu administrador não tem permissão para esta operação neste módulo.'
+    );
+  }
   return auth;
+}
+
+function requireOwner(auth) {
+  if (!auth || !auth.admin || auth.admin.role !== 'owner') {
+    throw new HttpError(
+      403,
+      'OWNER_ONLY',
+      'Somente o administrador principal pode gerenciar administradores.'
+    );
+  }
+}
+
+function serializeAdminAccount(admin, sessionCount = 0) {
+  return {
+    id: admin._id.toString(),
+    username: admin.username,
+    displayName: admin.displayName || admin.username,
+    role: admin.role,
+    active: Boolean(admin.active),
+    permissions: admin.role === 'owner' ? [] : admin.permissions || [],
+    sessionCount: Number(sessionCount || 0),
+    lastLoginAt: admin.lastLoginAt || null,
+    createdAt: admin.createdAt || null,
+    updatedAt: admin.updatedAt || null,
+  };
 }
 
 function serializeMember(member) {
@@ -126,6 +215,9 @@ function serializeMember(member) {
     totalEarned: Number(member.totalEarned || 0),
     totalSpent: Number(member.totalSpent || 0),
     eventsParticipated: Number(member.eventsParticipated || 0),
+    robberyCards: Number(member.robberyCards || 0),
+    robberyCardsUpdatedAt: member.robberyCardsUpdatedAt || null,
+    robberyCardsUpdatedByName: member.robberyCardsUpdatedByName || null,
     createdAt: member.createdAt,
     archivedAt: member.archivedAt || null,
   };
@@ -333,6 +425,8 @@ async function me(req, res) {
       categories: EVENT_CATEGORIES,
       roles: MEMBER_ROLES,
       timezone: APP_TIMEZONE,
+      modules: ADMIN_MODULES,
+      isOwner: auth.admin.role === 'owner',
     },
   });
 }
@@ -406,7 +500,7 @@ async function changePassword(req, res) {
 /* -------------------------------------------------------------------------- */
 
 async function dashboard(req, res) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'dashboard');
   const {
     members,
     events,
@@ -562,7 +656,7 @@ async function dashboard(req, res) {
 /* -------------------------------------------------------------------------- */
 
 async function listMembers(req, res) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'members');
   const { members } = await collections();
   const status = queryValue(req, 'status', 'active');
   const search = assertSearchSafe(queryValue(req, 'search', '')).trim();
@@ -587,7 +681,7 @@ async function listMembers(req, res) {
 }
 
 async function createMember(req, res) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'members');
   const body = await readJson(req);
   const { members } = await collections();
 
@@ -631,6 +725,10 @@ async function createMember(req, res) {
     totalEarned: 0,
     totalSpent: 0,
     eventsParticipated: 0,
+    robberyCards: 0,
+    robberyCardsUpdatedAt: null,
+    robberyCardsUpdatedBy: null,
+    robberyCardsUpdatedByName: null,
     createdAt: now,
     updatedAt: now,
     createdBy: auth.admin._id,
@@ -659,7 +757,7 @@ async function createMember(req, res) {
 }
 
 async function getMember(req, res, id) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'members');
   const memberId = objectId(id, 'Membro');
   const {
     members,
@@ -727,7 +825,7 @@ async function getMember(req, res, id) {
 }
 
 async function updateMember(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'members');
   const memberId = objectId(id, 'Membro');
   const body = await readJson(req);
   const { members } = await collections();
@@ -808,7 +906,7 @@ async function updateMember(req, res, id) {
 }
 
 async function archiveMember(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'members');
   const memberId = objectId(id, 'Membro');
   const { members, redemptions } = await collections();
   const member = await members.findOne({ _id: memberId });
@@ -846,7 +944,7 @@ async function archiveMember(req, res, id) {
 }
 
 async function restoreMember(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'members');
   const memberId = objectId(id, 'Membro');
   const { members } = await collections();
   const member = await members.findOne({ _id: memberId });
@@ -890,7 +988,7 @@ async function restoreMember(req, res, id) {
 /* -------------------------------------------------------------------------- */
 
 async function addPoints(req, res) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'points');
   const body = await readJson(req);
   const memberId = objectId(body.memberId, 'Membro');
   const amount = intField(body.amount, 'Quantidade de pontos', { min: 1, max: 100_000_000 });
@@ -1003,7 +1101,7 @@ async function addPoints(req, res) {
 }
 
 async function listTransactions(req, res) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'points');
   const { pointTransactions } = await collections();
   const { page, limit, skip } = pagination(req.query || {});
   const filter = {};
@@ -1043,7 +1141,7 @@ async function listTransactions(req, res) {
 /* -------------------------------------------------------------------------- */
 
 async function listEvents(req, res) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'events');
   const { events } = await collections();
   const status = queryValue(req, 'status');
   const seasonIdRaw = queryValue(req, 'seasonId');
@@ -1104,7 +1202,7 @@ async function listEvents(req, res) {
 }
 
 async function createEvent(req, res) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'events');
   const body = await readJson(req);
   const { events, seasons } = await collections();
 
@@ -1164,7 +1262,7 @@ async function createEvent(req, res) {
 }
 
 async function getEvent(req, res, id) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'events');
   const eventId = objectId(id, 'Evento');
   const { events, eventParticipants, members, seasons } = await collections();
   const event = await events.findOne({ _id: eventId });
@@ -1213,7 +1311,7 @@ async function getEvent(req, res, id) {
 }
 
 async function updateEvent(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'events');
   const eventId = objectId(id, 'Evento');
   const body = await readJson(req);
   const { events, seasons } = await collections();
@@ -1272,7 +1370,7 @@ async function updateEvent(req, res, id) {
 }
 
 async function setAttendance(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'events');
   const eventId = objectId(id, 'Evento');
   const body = await readJson(req);
   const memberId = objectId(body.memberId, 'Membro');
@@ -1347,7 +1445,7 @@ async function setAttendance(req, res, id) {
 }
 
 async function finalizeEvent(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'events');
   const eventId = objectId(id, 'Evento');
   const {
     events,
@@ -1514,7 +1612,7 @@ async function finalizeEvent(req, res, id) {
 }
 
 async function cancelEvent(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'events');
   const eventId = objectId(id, 'Evento');
   const { events } = await collections();
   const event = await events.findOne({ _id: eventId });
@@ -1558,7 +1656,7 @@ async function cancelEvent(req, res, id) {
 /* -------------------------------------------------------------------------- */
 
 async function rankings(req, res) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'ranking');
   const { members, pointTransactions, seasons } = await collections();
   const period = queryValue(req, 'period', 'general');
   const seasonIdRaw = queryValue(req, 'seasonId');
@@ -1654,7 +1752,14 @@ async function rankings(req, res) {
 /* -------------------------------------------------------------------------- */
 
 async function listSeasons(req, res) {
-  await requireAdmin(req, false);
+  const auth = await requireAdmin(req, false);
+  if (!['seasons', 'events', 'ranking'].some((moduleKey) => hasPermission(auth.admin, moduleKey))) {
+    throw new HttpError(
+      403,
+      'MODULE_FORBIDDEN',
+      'Seu administrador não tem permissão para consultar temporadas.'
+    );
+  }
   const { seasons, events, pointTransactions } = await collections();
   const docs = await seasons.find({}).sort({ startDate: -1 }).toArray();
 
@@ -1704,7 +1809,7 @@ async function listSeasons(req, res) {
 }
 
 async function createSeason(req, res) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'seasons');
   const body = await readJson(req);
   const { seasons } = await collections();
 
@@ -1771,7 +1876,7 @@ async function createSeason(req, res) {
 }
 
 async function activateSeason(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'seasons');
   const seasonId = objectId(id, 'Temporada');
   const { seasons } = await collections();
   const season = await seasons.findOne({ _id: seasonId });
@@ -1828,7 +1933,7 @@ async function activateSeason(req, res, id) {
 }
 
 async function closeSeason(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'seasons');
   const seasonId = objectId(id, 'Temporada');
   const { seasons } = await collections();
   const season = await seasons.findOne({ _id: seasonId });
@@ -1858,7 +1963,14 @@ async function closeSeason(req, res, id) {
 /* -------------------------------------------------------------------------- */
 
 async function listRewards(req, res) {
-  await requireAdmin(req, false);
+  const auth = await requireAdmin(req, false);
+  if (!['rewards', 'redemptions'].some((moduleKey) => hasPermission(auth.admin, moduleKey))) {
+    throw new HttpError(
+      403,
+      'MODULE_FORBIDDEN',
+      'Seu administrador não tem permissão para consultar a loja.'
+    );
+  }
   const { rewards } = await collections();
   const status = queryValue(req, 'status', 'all');
   const search = assertSearchSafe(queryValue(req, 'search', '')).trim();
@@ -1882,7 +1994,7 @@ async function listRewards(req, res) {
 }
 
 async function createReward(req, res) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'rewards');
   const body = await readJson(req);
   const { rewards } = await collections();
 
@@ -1928,7 +2040,7 @@ async function createReward(req, res) {
 }
 
 async function updateReward(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'rewards');
   const rewardId = objectId(id, 'Presente');
   const body = await readJson(req);
   const { rewards } = await collections();
@@ -1975,7 +2087,7 @@ async function updateReward(req, res, id) {
 }
 
 async function archiveReward(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'rewards');
   const rewardId = objectId(id, 'Presente');
   const { rewards, redemptions } = await collections();
   const reward = await rewards.findOne({ _id: rewardId });
@@ -2013,7 +2125,7 @@ async function archiveReward(req, res, id) {
 }
 
 async function restoreReward(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'rewards');
   const rewardId = objectId(id, 'Presente');
   const { rewards } = await collections();
   const reward = await rewards.findOne({ _id: rewardId });
@@ -2041,7 +2153,7 @@ async function restoreReward(req, res, id) {
 /* -------------------------------------------------------------------------- */
 
 async function listRedemptions(req, res) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'redemptions');
   const { redemptions } = await collections();
   const status = queryValue(req, 'status');
   const search = assertSearchSafe(queryValue(req, 'search', '')).trim();
@@ -2074,7 +2186,7 @@ async function listRedemptions(req, res) {
 }
 
 async function createRedemption(req, res) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'redemptions');
   const body = await readJson(req);
   const memberId = objectId(body.memberId, 'Membro');
   const rewardId = objectId(body.rewardId, 'Presente');
@@ -2236,7 +2348,7 @@ async function createRedemption(req, res) {
 }
 
 async function getRedemption(req, res, id) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'redemptions');
   const redemptionId = objectId(id, 'Resgate');
   const { redemptions } = await collections();
   const redemption = await redemptions.findOne({ _id: redemptionId });
@@ -2245,7 +2357,7 @@ async function getRedemption(req, res, id) {
 }
 
 async function approveRedemption(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'redemptions');
   const redemptionId = objectId(id, 'Resgate');
   const { redemptions, members, pointTransactions } = await collections();
 
@@ -2345,7 +2457,7 @@ async function approveRedemption(req, res, id) {
 }
 
 async function rejectRedemption(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'redemptions');
   const redemptionId = objectId(id, 'Resgate');
   const body = await readJson(req);
   const reason = stringField(body.reason, 'Motivo da recusa', { min: 3, max: 300 });
@@ -2455,7 +2567,7 @@ async function rejectRedemption(req, res, id) {
 }
 
 async function deliverRedemption(req, res, id) {
-  const auth = await requireAdmin(req, true);
+  const auth = await requireAdmin(req, true, 'redemptions');
   const redemptionId = objectId(id, 'Resgate');
   const { redemptions } = await collections();
 
@@ -2514,7 +2626,7 @@ async function deliverRedemption(req, res, id) {
 /* -------------------------------------------------------------------------- */
 
 async function listAudit(req, res) {
-  await requireAdmin(req, false);
+  await requireAdmin(req, false, 'audit');
   const { auditLogs } = await collections();
   const { page, limit, skip } = pagination(req.query || {});
   const filter = {};
@@ -2541,6 +2653,321 @@ async function listAudit(req, res) {
 /* -------------------------------------------------------------------------- */
 /* Router                                                                     */
 /* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* Member options (seletores internos) e cartões de roubo                      */
+/* -------------------------------------------------------------------------- */
+
+async function memberOptions(req, res) {
+  await requireAdmin(req, false);
+  const { members } = await collections();
+  const status = queryValue(req, 'status', 'active');
+  const search = assertSearchSafe(queryValue(req, 'search', '')).trim();
+  const filter = {};
+  if (status === 'active' || status === 'archived') filter.status = status;
+  if (search) {
+    const regex = new RegExp(escapeRegex(search), 'i');
+    filter.$or = [{ nickname: regex }, { playerId: regex }];
+  }
+
+  const docs = await members
+    .find(filter)
+    .sort({ status: 1, nickname: 1 })
+    .limit(1000)
+    .toArray();
+
+  return json(res, 200, {
+    members: docs.map((member) => ({
+      id: member._id.toString(),
+      nickname: member.nickname,
+      playerId: member.playerId,
+      avatar: member.avatar || '',
+      role: member.role || 'Membro',
+      status: member.status,
+      balance: Number(member.balance || 0),
+      reserved: Number(member.reserved || 0),
+      totalEarned: Number(member.totalEarned || 0),
+      robberyCards: Number(member.robberyCards || 0),
+    })),
+    total: docs.length,
+  });
+}
+
+async function listRobberyCards(req, res) {
+  await requireAdmin(req, false, 'robbery');
+  const { members } = await collections();
+  const status = queryValue(req, 'status', 'active');
+  const search = assertSearchSafe(queryValue(req, 'search', '')).trim();
+  const filter = {};
+  if (status === 'active' || status === 'archived') filter.status = status;
+  if (search) {
+    const regex = new RegExp(escapeRegex(search), 'i');
+    filter.$or = [{ nickname: regex }, { playerId: regex }, { role: regex }];
+  }
+
+  const [docs, statsRows] = await Promise.all([
+    members.find(filter).sort({ robberyCards: -1, nickname: 1 }).limit(1000).toArray(),
+    members
+      .aggregate([
+        { $match: { status: 'active' } },
+        {
+          $group: {
+            _id: null,
+            totalCards: { $sum: { $ifNull: ['$robberyCards', 0] } },
+            membersWithCards: {
+              $sum: { $cond: [{ $gt: [{ $ifNull: ['$robberyCards', 0] }, 0] }, 1, 0] },
+            },
+            members: { $sum: 1 },
+          },
+        },
+      ])
+      .toArray(),
+  ]);
+
+  const stats = statsRows[0] || { totalCards: 0, membersWithCards: 0, members: 0 };
+  return json(res, 200, {
+    members: docs.map(serializeMember),
+    total: docs.length,
+    stats: {
+      totalCards: Number(stats.totalCards || 0),
+      membersWithCards: Number(stats.membersWithCards || 0),
+      members: Number(stats.members || 0),
+    },
+  });
+}
+
+async function updateRobberyCards(req, res, id) {
+  const auth = await requireAdmin(req, true, 'robbery');
+  const memberId = objectId(id, 'Membro');
+  const body = await readJson(req);
+  const total = intField(body.total, 'Total de cartões de roubo', {
+    min: 0,
+    max: 1_000_000_000,
+  });
+  const note = stringField(body.note || '', 'Observação', {
+    min: 0,
+    max: 300,
+    optional: true,
+  });
+  const { members } = await collections();
+
+  const result = await withTransaction(async (session) => {
+    const member = await members.findOne({ _id: memberId }, { session });
+    if (!member) throw new HttpError(404, 'MEMBER_NOT_FOUND', 'Membro não encontrado.');
+    const previous = Number(member.robberyCards || 0);
+    const now = new Date();
+    const updated = await members.findOneAndUpdate(
+      { _id: memberId },
+      {
+        $set: {
+          robberyCards: total,
+          robberyCardsUpdatedAt: now,
+          robberyCardsUpdatedBy: auth.admin._id,
+          robberyCardsUpdatedByName: auth.admin.displayName || auth.admin.username,
+          updatedAt: now,
+        },
+      },
+      { session, returnDocument: 'after' }
+    );
+
+    await audit({
+      admin: auth.admin,
+      action: 'robbery_cards.updated',
+      entityType: 'member',
+      entityId: memberId,
+      description:
+        `Cartões de roubo de ${member.nickname}: ${previous} → ${total}.` +
+        (note ? ` ${note}` : ''),
+      metadata: { previous, total, note },
+      req,
+      session,
+    });
+
+    return { member: serializeMember(updated), previous, total };
+  });
+
+  return json(res, 200, result);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Administração de administradores (somente owner)                           */
+/* -------------------------------------------------------------------------- */
+
+async function listAdmins(req, res) {
+  const auth = await requireAdmin(req, false);
+  requireOwner(auth);
+  const { admins, adminSessions } = await collections();
+  const [docs, sessionRows] = await Promise.all([
+    admins.find({}).sort({ role: 1, username: 1 }).toArray(),
+    adminSessions
+      .aggregate([
+        { $match: { expiresAt: { $gt: new Date() } } },
+        { $group: { _id: '$adminId', count: { $sum: 1 } } },
+      ])
+      .toArray(),
+  ]);
+  const sessionMap = new Map(sessionRows.map((row) => [row._id.toString(), row.count]));
+  docs.sort((a, b) => {
+    if (a.role !== b.role) return a.role === 'owner' ? -1 : 1;
+    return a.username.localeCompare(b.username, 'pt-BR');
+  });
+  return json(res, 200, {
+    admins: docs.map((admin) =>
+      serializeAdminAccount(admin, sessionMap.get(admin._id.toString()) || 0)
+    ),
+    modules: ADMIN_MODULES,
+  });
+}
+
+function validateSecondaryPermissions(permissions) {
+  const normalized = normalizePermissions(permissions);
+  if (!normalized.some((permission) => permission.endsWith(':view'))) {
+    throw new HttpError(
+      422,
+      'VALIDATION_ERROR',
+      'Selecione pelo menos um módulo para o administrador secundário.'
+    );
+  }
+  return normalized;
+}
+
+async function createAdmin(req, res) {
+  const auth = await requireAdmin(req, true);
+  requireOwner(auth);
+  const body = await readJson(req);
+  const { admins } = await collections();
+
+  const username = stringField(body.username, 'Usuário', { min: 2, max: 40 });
+  if (!/^[A-Za-z0-9._-]+$/.test(username)) {
+    throw new HttpError(
+      422,
+      'VALIDATION_ERROR',
+      'O usuário deve conter apenas letras, números, ponto, hífen ou underline.'
+    );
+  }
+  const displayName = stringField(body.displayName || username, 'Nome de exibição', {
+    min: 2,
+    max: 60,
+  });
+  const password = stringField(body.password, 'Senha', { min: 8, max: 72, trim: false });
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    throw new HttpError(
+      422,
+      'VALIDATION_ERROR',
+      'A senha deve conter pelo menos uma letra e um número.'
+    );
+  }
+  const permissions = validateSecondaryPermissions(body.permissions);
+  const active = boolField(body.active, true);
+
+  const existing = await admins.findOne({ usernameLower: username.toLowerCase() });
+  if (existing) {
+    throw new HttpError(409, 'ADMIN_EXISTS', 'Já existe um administrador com esse usuário.');
+  }
+
+  const now = new Date();
+  const doc = {
+    username,
+    usernameLower: username.toLowerCase(),
+    displayName,
+    passwordHash: await bcrypt.hash(password, 12),
+    role: 'admin',
+    active,
+    permissions,
+    lastLoginAt: null,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: auth.admin._id,
+  };
+  const inserted = await admins.insertOne(doc);
+
+  await audit({
+    admin: auth.admin,
+    action: 'admin.created',
+    entityType: 'admin',
+    entityId: inserted.insertedId,
+    description: `Administrador ${displayName} (${username}) criado com ${permissions.filter((p) => p.endsWith(':view')).length} módulo(s).`,
+    metadata: { username, permissions, active },
+    req,
+  });
+
+  return json(res, 201, {
+    admin: serializeAdminAccount({ ...doc, _id: inserted.insertedId }),
+  });
+}
+
+async function updateAdmin(req, res, id) {
+  const auth = await requireAdmin(req, true);
+  requireOwner(auth);
+  const adminId = objectId(id, 'Administrador');
+  const body = await readJson(req);
+  const { admins, adminSessions } = await collections();
+  const admin = await admins.findOne({ _id: adminId });
+  if (!admin) throw new HttpError(404, 'ADMIN_NOT_FOUND', 'Administrador não encontrado.');
+  if (admin.role === 'owner') {
+    throw new HttpError(
+      403,
+      'OWNER_PROTECTED',
+      'O administrador principal não pode ser alterado por esta tela.'
+    );
+  }
+
+  const updates = {};
+  if (body.displayName !== undefined) {
+    updates.displayName = stringField(body.displayName, 'Nome de exibição', {
+      min: 2,
+      max: 60,
+    });
+  }
+  if (body.permissions !== undefined) {
+    updates.permissions = validateSecondaryPermissions(body.permissions);
+  }
+  if (body.active !== undefined) updates.active = boolField(body.active, true);
+  if (body.password !== undefined && body.password !== '') {
+    const password = stringField(body.password, 'Nova senha', { min: 8, max: 72, trim: false });
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      throw new HttpError(
+        422,
+        'VALIDATION_ERROR',
+        'A nova senha deve conter pelo menos uma letra e um número.'
+      );
+    }
+    updates.passwordHash = await bcrypt.hash(password, 12);
+  }
+  if (!Object.keys(updates).length) {
+    throw new HttpError(422, 'VALIDATION_ERROR', 'Nenhum campo para atualizar.');
+  }
+
+  updates.updatedAt = new Date();
+  updates.updatedBy = auth.admin._id;
+  await admins.updateOne({ _id: adminId }, { $set: updates });
+
+  if (updates.active === false || updates.passwordHash) {
+    await adminSessions.deleteMany({ adminId });
+  }
+
+  let action = 'admin.updated';
+  if (updates.active === false && admin.active) action = 'admin.deactivated';
+  if (updates.active === true && !admin.active) action = 'admin.reactivated';
+  const updated = await admins.findOne({ _id: adminId });
+  await audit({
+    admin: auth.admin,
+    action,
+    entityType: 'admin',
+    entityId: adminId,
+    description: `Administrador ${updated.displayName} (${updated.username}) atualizado${updates.passwordHash ? '; senha redefinida e sessões encerradas' : ''}.`,
+    metadata: {
+      active: updated.active,
+      permissions: updated.permissions || [],
+      passwordReset: Boolean(updates.passwordHash),
+    },
+    req,
+  });
+
+  return json(res, 200, {
+    admin: serializeAdminAccount(updated),
+  });
+}
 
 async function route(req, res) {
   const method = String(req.method || 'GET').toUpperCase();
@@ -2611,6 +3038,29 @@ async function route(req, res) {
     return dashboard(req, res);
   }
 
+  if (segments[0] === 'member-options' && segments.length === 1) {
+    if (method !== 'GET') methodNotAllowed(res, ['GET']);
+    return memberOptions(req, res);
+  }
+
+  if (segments[0] === 'robbery-cards' && segments.length === 1) {
+    if (method !== 'GET') methodNotAllowed(res, ['GET']);
+    return listRobberyCards(req, res);
+  }
+
+  if (segments[0] === 'admins') {
+    if (segments.length === 1) {
+      if (method === 'GET') return listAdmins(req, res);
+      if (method === 'POST') return createAdmin(req, res);
+      return methodNotAllowed(res, ['GET', 'POST']);
+    }
+    if (segments.length === 2) {
+      if (method !== 'PATCH') methodNotAllowed(res, ['PATCH']);
+      return updateAdmin(req, res, segments[1]);
+    }
+    throw new HttpError(404, 'NOT_FOUND', 'Rota não encontrada.');
+  }
+
   if (segments[0] === 'members') {
     if (segments.length === 1) {
       if (method === 'GET') return listMembers(req, res);
@@ -2627,6 +3077,10 @@ async function route(req, res) {
     if (segments.length === 3 && segments[2] === 'restore') {
       if (method !== 'POST') methodNotAllowed(res, ['POST']);
       return restoreMember(req, res, memberId);
+    }
+    if (segments.length === 3 && segments[2] === 'robbery-cards') {
+      if (method !== 'PATCH') methodNotAllowed(res, ['PATCH']);
+      return updateRobberyCards(req, res, memberId);
     }
     throw new HttpError(404, 'NOT_FOUND', 'Rota não encontrada.');
   }

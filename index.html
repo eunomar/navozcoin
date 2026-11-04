@@ -750,20 +750,22 @@
       </div>
 
       <nav class="flex-1 overflow-y-auto px-3 pb-4" aria-label="Navegação principal">
-        <div class="nav-section">Painel</div>
-        <a href="#/dashboard" data-nav="dashboard" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Visão geral</span></a>
-        <a href="#/members" data-nav="members" class="nav-item"><i data-lucide="users"></i><span>Membros</span></a>
-        <a href="#/events" data-nav="events" class="nav-item"><i data-lucide="calendar-days"></i><span>Eventos</span></a>
-        <a href="#/ranking" data-nav="ranking" class="nav-item"><i data-lucide="trophy"></i><span>Ranking</span></a>
+        <div class="nav-section" data-nav-section>Painel</div>
+        <a href="#/dashboard" data-nav="dashboard" data-permission="dashboard" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Visão geral</span></a>
+        <a href="#/members" data-nav="members" data-permission="members" class="nav-item"><i data-lucide="users"></i><span>Membros</span></a>
+        <a href="#/events" data-nav="events" data-permission="events" class="nav-item"><i data-lucide="calendar-days"></i><span>Eventos</span></a>
+        <a href="#/ranking" data-nav="ranking" data-permission="ranking" class="nav-item"><i data-lucide="trophy"></i><span>Ranking</span></a>
 
-        <div class="nav-section">Gestão</div>
-        <a href="#/points" data-nav="points" class="nav-item"><i data-lucide="sparkles"></i><span>Pontuação</span></a>
-        <a href="#/rewards" data-nav="rewards" class="nav-item"><i data-lucide="gift"></i><span>Loja</span></a>
-        <a href="#/redemptions" data-nav="redemptions" class="nav-item"><i data-lucide="package-check"></i><span>Resgates</span><span id="nav-redemption-badge" class="nav-badge hidden">0</span></a>
-        <a href="#/seasons" data-nav="seasons" class="nav-item"><i data-lucide="layers"></i><span>Temporadas</span></a>
+        <div class="nav-section" data-nav-section>Gestão</div>
+        <a href="#/points" data-nav="points" data-permission="points" class="nav-item"><i data-lucide="sparkles"></i><span>Pontuação</span></a>
+        <a href="#/robbery" data-nav="robbery" data-permission="robbery" class="nav-item"><i data-lucide="scan-line"></i><span>Cartões de Roubo</span></a>
+        <a href="#/rewards" data-nav="rewards" data-permission="rewards" class="nav-item"><i data-lucide="gift"></i><span>Loja</span></a>
+        <a href="#/redemptions" data-nav="redemptions" data-permission="redemptions" class="nav-item"><i data-lucide="package-check"></i><span>Resgates</span><span id="nav-redemption-badge" class="nav-badge hidden">0</span></a>
+        <a href="#/seasons" data-nav="seasons" data-permission="seasons" class="nav-item"><i data-lucide="layers"></i><span>Temporadas</span></a>
 
-        <div class="nav-section">Sistema</div>
-        <a href="#/audit" data-nav="audit" class="nav-item"><i data-lucide="scroll-text"></i><span>Auditoria</span></a>
+        <div class="nav-section" data-nav-section>Sistema</div>
+        <a href="#/audit" data-nav="audit" data-permission="audit" class="nav-item"><i data-lucide="scroll-text"></i><span>Auditoria</span></a>
+        <a href="#/admins" data-nav="admins" data-owner-only class="nav-item"><i data-lucide="shield-check"></i><span>Administradores</span></a>
       </nav>
 
       <div class="p-3 border-t border-white/6">
@@ -772,7 +774,7 @@
             <div id="sidebar-admin-avatar" class="avatar sm"><span>N</span></div>
             <div class="min-w-0 flex-1">
               <div id="sidebar-admin-name" class="text-[12px] font-semibold text-white truncate">—</div>
-              <div class="text-[9px] uppercase tracking-[.12em] text-slate-500 font-semibold">Administrador</div>
+              <div id="sidebar-admin-role" class="text-[9px] uppercase tracking-[.12em] text-slate-500 font-semibold">Administrador</div>
             </div>
             <button id="sidebar-logout" class="icon-btn !w-8 !h-8" title="Sair" aria-label="Sair">
               <i data-lucide="log-out"></i>
@@ -814,7 +816,7 @@
                 <div id="topbar-admin-avatar" class="avatar sm !w-7 !h-7 !rounded-lg"><span>N</span></div>
                 <div class="hidden sm:block text-left">
                   <div id="topbar-admin-name" class="text-[11px] font-semibold text-white leading-tight max-w-[100px] truncate">—</div>
-                  <div class="text-[8px] uppercase tracking-[.12em] text-slate-500">Admin</div>
+                  <div id="topbar-admin-role" class="text-[8px] uppercase tracking-[.12em] text-slate-500">Admin</div>
                 </div>
                 <i data-lucide="chevron-down" class="hidden sm:block w-3 h-3 text-slate-500"></i>
               </button>
@@ -871,6 +873,7 @@
         seasons: [],
         membersFilter: { status: 'active', search: '' },
         eventsFilter: { status: 'scheduled', search: '' },
+        robberyFilter: { status: 'active', search: '' },
         rewardsFilter: 'active',
         redemptionsFilter: 'all',
         rankingPeriod: 'general',
@@ -904,6 +907,19 @@
         correction: { label: 'Correção', icon: 'wrench', tone: 'text-blue-300', bg: 'bg-blue-500/8 border-blue-500/20' },
       };
 
+      const MODULE_ICONS = {
+        dashboard: 'layout-dashboard',
+        members: 'users',
+        events: 'calendar-days',
+        ranking: 'trophy',
+        points: 'sparkles',
+        robbery: 'scan-line',
+        rewards: 'gift',
+        redemptions: 'package-check',
+        seasons: 'layers',
+        audit: 'scroll-text',
+      };
+
       const ACTION_META = {
         'member.created': { icon: 'user-plus', tone: 'text-emerald-300' },
         'member.updated': { icon: 'pencil', tone: 'text-blue-300' },
@@ -911,6 +927,11 @@
         'member.restored': { icon: 'archive-restore', tone: 'text-emerald-300' },
         'points.added': { icon: 'plus-circle', tone: 'text-neon-light' },
         'points.removed': { icon: 'minus-circle', tone: 'text-red-300' },
+        'robbery_cards.updated': { icon: 'scan-line', tone: 'text-gold' },
+        'admin.created': { icon: 'user-plus', tone: 'text-emerald-300' },
+        'admin.updated': { icon: 'shield-check', tone: 'text-blue-300' },
+        'admin.deactivated': { icon: 'shield-off', tone: 'text-red-300' },
+        'admin.reactivated': { icon: 'shield-check', tone: 'text-emerald-300' },
         'event.created': { icon: 'calendar-plus', tone: 'text-neon-light' },
         'event.updated': { icon: 'calendar-cog', tone: 'text-blue-300' },
         'event.attendance': { icon: 'user-check', tone: 'text-slate-300' },
@@ -939,6 +960,72 @@
           this.status = status;
           this.requestId = requestId;
         }
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Permissões de administradores                                      */
+      /* ------------------------------------------------------------------ */
+
+      function isOwner() {
+        return Boolean(state.admin && state.admin.role === 'owner');
+      }
+
+      function can(moduleKey, action = 'view') {
+        if (!state.admin) return false;
+        if (isOwner()) return true;
+        const permissions = Array.isArray(state.admin.permissions)
+          ? state.admin.permissions
+          : [];
+        if (permissions.includes(`${moduleKey}:manage`)) return true;
+        return action === 'view' && permissions.includes(`${moduleKey}:view`);
+      }
+
+      function canManage(moduleKey) {
+        return can(moduleKey, 'manage');
+      }
+
+      function routeModule(root) {
+        return root === 'event' ? 'events' : root;
+      }
+
+      function allowedRouteFallback() {
+        const links = $$('[data-nav]').filter((link) => {
+          if (link.classList.contains('hidden')) return false;
+          if (link.hasAttribute('data-owner-only') && !isOwner()) return false;
+          return true;
+        });
+        return links.length ? links[0].getAttribute('href').replace(/^#\/?/, '') : 'dashboard';
+      }
+
+      function landingRoute() {
+        return can('dashboard') ? 'dashboard' : allowedRouteFallback();
+      }
+
+      function applyPermissionUI() {
+        $$('[data-permission]').forEach((link) => {
+          const moduleKey = link.dataset.permission;
+          link.classList.toggle('hidden', !can(moduleKey));
+        });
+        $$('[data-owner-only]').forEach((element) => {
+          element.classList.toggle('hidden', !isOwner());
+        });
+
+        $$('[data-nav-section]').forEach((section) => {
+          let hasVisible = false;
+          let node = section.nextElementSibling;
+          while (node && !node.hasAttribute('data-nav-section')) {
+            if (node.matches('[data-nav]') && !node.classList.contains('hidden')) {
+              hasVisible = true;
+              break;
+            }
+            node = node.nextElementSibling;
+          }
+          section.classList.toggle('hidden', !hasVisible);
+        });
+
+        const role = $('#sidebar-admin-role');
+        if (role) role.textContent = isOwner() ? 'Administrador principal' : 'Administrador secundário';
+        refreshIcons();
       }
 
       /* ------------------------------------------------------------------ */
@@ -1338,10 +1425,12 @@
         event: { section: 'Eventos', title: 'Gerenciar evento' },
         ranking: { section: 'Painel', title: 'Ranking' },
         points: { section: 'Gestão', title: 'Pontuação' },
+        robbery: { section: 'Gestão', title: 'Cartões de Roubo' },
         rewards: { section: 'Gestão', title: 'Loja de presentes' },
         redemptions: { section: 'Gestão', title: 'Resgates' },
         seasons: { section: 'Gestão', title: 'Temporadas' },
         audit: { section: 'Sistema', title: 'Auditoria' },
+        admins: { section: 'Sistema', title: 'Administradores' },
       };
 
       function parseHash() {
@@ -1434,6 +1523,11 @@
           const element = $(selector);
           if (element) element.innerHTML = html;
         });
+        const topbarRole = $('#topbar-admin-role');
+        if (topbarRole) topbarRole.textContent = isOwner() ? 'Principal' : 'Secundário';
+        const bell = $('#topbar-bell');
+        if (bell) bell.classList.toggle('hidden', !can('redemptions'));
+        applyPermissionUI();
       }
 
       function showLogin() {
@@ -1589,18 +1683,18 @@
               <p class="text-[12.5px] text-slate-500 mt-2.5 max-w-xl">Aqui está o pulso da família hoje. ${s.eventsPending ? `<span class="text-slate-300">${s.eventsPending} evento(s)</span> aguardando sua atenção.` : 'Tudo em ordem por aqui.'}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
-              <button type="button" data-dashboard-new-event class="btn btn-ghost"><i data-lucide="calendar-plus"></i> Novo evento</button>
-              <a href="#/points" class="btn btn-primary"><i data-lucide="sparkles"></i> Adicionar pontos</a>
+              ${canManage('events') ? '<button type="button" data-dashboard-new-event class="btn btn-ghost"><i data-lucide="calendar-plus"></i> Novo evento</button>' : ''}
+              ${canManage('points') ? '<a href="#/points" class="btn btn-primary"><i data-lucide="sparkles"></i> Adicionar pontos</a>' : ''}
             </div>
           </div>
 
           <div class="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            ${statCard('Membros ativos', fmtNum(s.activeMembers), `${fmtNum(s.archivedMembers)} arquivado(s)`, 'users', 'purple', `<a href="#/members" class="stat-link">Gerenciar <i data-lucide="arrow-up-right"></i></a>`)}
+            ${statCard('Membros ativos', fmtNum(s.activeMembers), `${fmtNum(s.archivedMembers)} arquivado(s)`, 'users', 'purple', can('members') ? `<a href="#/members" class="stat-link">Gerenciar <i data-lucide="arrow-up-right"></i></a>` : '')}
             ${statCard('Pontos distribuídos', fmtCompact(s.pointsDistributed), 'Histórico total da família', 'sparkles', 'gold', `<span class="text-[10px] text-gold/70 font-semibold">${fmtNum(s.pointsDistributed)} pts</span>`)}
             ${statCard('Saldo nas carteiras', fmtCompact(s.availablePoints), `${fmtNum(s.reservedPoints)} pts reservados`, 'wallet', 'purple', `<span class="text-[10px] text-slate-500">${fmtNum(s.availablePoints)} disponíveis</span>`)}
-            ${statCard('Eventos realizados', fmtNum(s.eventsCompleted), `${fmtNum(s.eventsCancelled)} cancelado(s)`, 'flag', 'green', `<a href="#/events" class="stat-link">Ver eventos <i data-lucide="arrow-up-right"></i></a>`)}
-            ${statCard('Eventos pendentes', fmtNum(s.eventsPending), nextEvent ? `Próximo: ${fmtDateOnly(nextEvent.date, { year: false })}` : 'Nenhum agendado', 'calendar-clock', 'gold', `<a href="#/events" class="stat-link">Gerenciar <i data-lucide="arrow-up-right"></i></a>`)}
-            ${statCard('Resgates pendentes', fmtNum(s.redemptionsPending), `${fmtNum(s.pendingRedemptionPoints)} pts aguardando`, 'package-open', s.redemptionsPending ? 'gold' : 'purple', `<a href="#/redemptions" class="stat-link">Administrar <i data-lucide="arrow-up-right"></i></a>`)}
+            ${statCard('Eventos realizados', fmtNum(s.eventsCompleted), `${fmtNum(s.eventsCancelled)} cancelado(s)`, 'flag', 'green', can('events') ? `<a href="#/events" class="stat-link">Ver eventos <i data-lucide="arrow-up-right"></i></a>` : '')}
+            ${statCard('Eventos pendentes', fmtNum(s.eventsPending), nextEvent ? `Próximo: ${fmtDateOnly(nextEvent.date, { year: false })}` : 'Nenhum agendado', 'calendar-clock', 'gold', can('events') ? `<a href="#/events" class="stat-link">Gerenciar <i data-lucide="arrow-up-right"></i></a>` : '')}
+            ${statCard('Resgates pendentes', fmtNum(s.redemptionsPending), `${fmtNum(s.pendingRedemptionPoints)} pts aguardando`, 'package-open', s.redemptionsPending ? 'gold' : 'purple', can('redemptions') ? `<a href="#/redemptions" class="stat-link">Administrar <i data-lucide="arrow-up-right"></i></a>` : '')}
           </div>
 
           <div class="grid xl:grid-cols-[1.65fr_1fr] gap-4 mt-4">
@@ -1633,7 +1727,7 @@
                   <h3 class="font-display text-lg font-bold text-white">Top 5 da família</h3>
                   <p class="text-[11px] text-slate-500 mt-0.5">Maiores pontuações históricas.</p>
                 </div>
-                <a href="#/ranking" class="icon-btn" title="Ver ranking completo"><i data-lucide="arrow-up-right"></i></a>
+                ${can('ranking') ? '<a href="#/ranking" class="icon-btn" title="Ver ranking completo"><i data-lucide="arrow-up-right"></i></a>' : ''}
               </div>
               <div class="space-y-2.5">
                 ${data.topMembers.length ? data.topMembers.map((member, index) => {
@@ -1666,7 +1760,7 @@
                   <h3 class="font-display text-lg font-bold text-white">Próximos eventos</h3>
                   <p class="text-[11px] text-slate-500 mt-0.5">Agenda e presenças da família.</p>
                 </div>
-                <a href="#/events" class="text-[10.5px] font-semibold text-neon-light hover:text-white transition flex items-center gap-1">Ver todos <i data-lucide="arrow-right" class="w-3 h-3"></i></a>
+                ${can('events') ? '<a href="#/events" class="text-[10.5px] font-semibold text-neon-light hover:text-white transition flex items-center gap-1">Ver todos <i data-lucide="arrow-right" class="w-3 h-3"></i></a>' : ''}
               </div>
               <div class="space-y-2">
                 ${data.upcomingEvents.length ? data.upcomingEvents.map((event) => {
@@ -1697,7 +1791,7 @@
                       </div>
                       <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600 group-hover:text-neon-light transition"></i>
                     </a>`;
-                }).join('') : `<div class="py-7 text-center"><div class="text-[11px] text-slate-500">Nenhum evento agendado.</div><a href="#/events" class="btn btn-ghost btn-sm mt-3"><i data-lucide="calendar-plus"></i> Criar evento</a></div>`}
+                }).join('') : `<div class="py-7 text-center"><div class="text-[11px] text-slate-500">Nenhum evento agendado.</div>${canManage('events') ? '<a href="#/events" class="btn btn-ghost btn-sm mt-3"><i data-lucide="calendar-plus"></i> Criar evento</a>' : can('events') ? '<a href="#/events" class="btn btn-ghost btn-sm mt-3">Ver eventos</a>' : ''}</div>`}
               </div>
             </section>
 
@@ -1707,7 +1801,7 @@
                   <h3 class="font-display text-lg font-bold text-white">Atividade recente</h3>
                   <p class="text-[11px] text-slate-500 mt-0.5">Registro administrativo auditado.</p>
                 </div>
-                <a href="#/audit" class="icon-btn" title="Abrir auditoria"><i data-lucide="scroll-text"></i></a>
+                ${can('audit') ? '<a href="#/audit" class="icon-btn" title="Abrir auditoria"><i data-lucide="scroll-text"></i></a>' : ''}
               </div>
               <div class="space-y-0.5">
                 ${data.recentActivity.length ? data.recentActivity.slice(0, 6).map((log) => {
@@ -1879,7 +1973,7 @@
             subtitle: 'Cadastre, edite e acompanhe cada jogador. O arquivamento preserva todo o histórico e o ledger financeiro.',
             actions: `
               <button type="button" class="btn btn-ghost" data-members-refresh><i data-lucide="refresh-cw"></i> Atualizar</button>
-              <button type="button" class="btn btn-primary" data-new-member><i data-lucide="user-plus"></i> Novo membro</button>`,
+              ${canManage('members') ? '<button type="button" class="btn btn-primary" data-new-member><i data-lucide="user-plus"></i> Novo membro</button>' : ''}`,
           })}
 
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 fade-up delay-1">
@@ -1911,7 +2005,8 @@
         refreshIcons();
         refreshMembersTable();
 
-        $('[data-new-member]').addEventListener('click', () => openMemberModal());
+        const newMemberButton = $('[data-new-member]');
+        if (newMemberButton) newMemberButton.addEventListener('click', () => openMemberModal());
         $('[data-members-refresh]').addEventListener('click', () => renderMembers());
         $('#member-search').addEventListener('input', (event) => {
           state.membersFilter.search = event.target.value;
@@ -2029,10 +2124,12 @@
                     <td class="!pr-5">
                       <div class="flex items-center justify-end gap-1">
                         <button type="button" class="icon-btn" title="Ver perfil" data-member-action="view" data-member-id="${esc(member.id)}"><i data-lucide="eye"></i></button>
-                        <button type="button" class="icon-btn" title="Editar" data-member-action="edit" data-member-id="${esc(member.id)}"><i data-lucide="pencil"></i></button>
-                        ${member.status === 'active'
-                          ? `<button type="button" class="icon-btn danger" title="Arquivar" data-member-action="archive" data-member-id="${esc(member.id)}"><i data-lucide="archive"></i></button>`
-                          : `<button type="button" class="icon-btn" title="Restaurar" data-member-action="restore" data-member-id="${esc(member.id)}"><i data-lucide="archive-restore"></i></button>`}
+                        ${canManage('members') ? `
+                          <button type="button" class="icon-btn" title="Editar" data-member-action="edit" data-member-id="${esc(member.id)}"><i data-lucide="pencil"></i></button>
+                          ${member.status === 'active'
+                            ? `<button type="button" class="icon-btn danger" title="Arquivar" data-member-action="archive" data-member-id="${esc(member.id)}"><i data-lucide="archive"></i></button>`
+                            : `<button type="button" class="icon-btn" title="Restaurar" data-member-action="restore" data-member-id="${esc(member.id)}"><i data-lucide="archive-restore"></i></button>`}
+                        ` : ''}
                       </div>
                     </td>
                   </tr>`).join('')}
@@ -2078,12 +2175,13 @@
                   </div>
                 </div>
               </div>
-              <div class="flex flex-wrap gap-2 mt-4">
-                <button type="button" class="btn btn-ghost btn-sm" data-profile-edit><i data-lucide="pencil"></i> Editar</button>
-                ${member.status === 'active'
-                  ? `<button type="button" class="btn btn-danger btn-sm" data-profile-archive><i data-lucide="archive"></i> Arquivar</button>`
-                  : `<button type="button" class="btn btn-ghost btn-sm" data-profile-restore><i data-lucide="archive-restore"></i> Restaurar</button>`}
-              </div>
+              ${canManage('members') ? `
+                <div class="flex flex-wrap gap-2 mt-4">
+                  <button type="button" class="btn btn-ghost btn-sm" data-profile-edit><i data-lucide="pencil"></i> Editar</button>
+                  ${member.status === 'active'
+                    ? `<button type="button" class="btn btn-danger btn-sm" data-profile-archive><i data-lucide="archive"></i> Arquivar</button>`
+                    : `<button type="button" class="btn btn-ghost btn-sm" data-profile-restore><i data-lucide="archive-restore"></i> Restaurar</button>`}
+                </div>` : ''}
             </div>
 
             ${pendingRedemptions ? `
@@ -2097,6 +2195,7 @@
               ${profileMetric('Pontos conquistados', fmtNum(member.totalEarned), 'sparkles', 'gold')}
               ${profileMetric('Pontos resgatados', fmtNum(member.totalSpent), 'gift', 'green')}
               ${profileMetric('Eventos participados', fmtNum(member.eventsParticipated), 'flag', 'slate')}
+              ${profileMetric('Cartões de Roubo', fmtNum(member.robberyCards), 'scan-line', 'gold')}
             </div>
 
             ${member.reserved ? `<div class="mt-3 rounded-lg border border-gold/15 bg-black/20 px-3 py-2 text-[10.5px] text-slate-400 flex items-center justify-between"><span>Reservado em resgates</span><span class="font-bold text-gold">${fmtNum(member.reserved)} pts</span></div>` : ''}
@@ -2107,7 +2206,7 @@
                   <h4 class="font-display text-base font-bold text-white">Movimentações</h4>
                   <p class="text-[10px] text-slate-500">Histórico financeiro imutável.</p>
                 </div>
-                <a href="#/points" class="text-[10px] text-neon-light hover:text-white font-semibold">Lançar pontos</a>
+                ${can('points') ? `<a href="#/points" class="text-[10px] text-neon-light hover:text-white font-semibold">${canManage('points') ? 'Lançar pontos' : 'Ver pontuação'}</a>` : ''}
               </div>
               <div class="rounded-xl border border-white/7 overflow-hidden">
                 ${transactions.length ? transactions.slice(0, 18).map(transactionRowHTML).join('') : emptyState('Nenhuma movimentação registrada.', { icon: 'receipt', title: 'Sem histórico' })}
@@ -2136,7 +2235,8 @@
             </section>`;
           refreshIcons();
 
-          $('[data-profile-edit]', body).addEventListener('click', () => openMemberModal(member));
+          const profileEdit = $('[data-profile-edit]', body);
+          if (profileEdit) profileEdit.addEventListener('click', () => openMemberModal(member));
           const archiveButton = $('[data-profile-archive]', body);
           if (archiveButton) archiveButton.addEventListener('click', () => archiveMemberAction(member));
           const restoreButton = $('[data-profile-restore]', body);
@@ -2179,6 +2279,7 @@
       }
 
       function openMemberModal(member = null) {
+        if (!canManage('members')) return;
         const roles = (state.meta.roles && state.meta.roles.length ? state.meta.roles : ['Líder', 'Vice-Líder', 'Oficial', 'Membro', 'Recruta', 'Convidado']);
         const isEdit = Boolean(member);
         const currentRole = member ? member.role : 'Membro';
@@ -2331,6 +2432,10 @@
         const trigger = event.target.closest('[data-open-member]');
         if (!trigger) return;
         event.preventDefault();
+        if (!can('members')) {
+          toast('Seu administrador não tem acesso ao módulo de membros.', 'warning');
+          return;
+        }
         openMemberProfile(trigger.dataset.openMember);
       });
 
@@ -2360,7 +2465,7 @@
             eyebrow: 'Agenda competitiva',
             title: 'Eventos',
             subtitle: 'Crie treinos, scrims e campeonatos, marque presenças e distribua pontos com finalização idempotente.',
-            actions: `<button type="button" class="btn btn-primary" data-new-event><i data-lucide="calendar-plus"></i> Novo evento</button>`,
+            actions: canManage('events') ? `<button type="button" class="btn btn-primary" data-new-event><i data-lucide="calendar-plus"></i> Novo evento</button>` : '',
           })}
 
           <div class="grid grid-cols-3 gap-3 mb-4 fade-up delay-1">
@@ -2393,7 +2498,8 @@
         refreshIcons();
         refreshEventsGrid();
 
-        $('[data-new-event]').addEventListener('click', () => openEventModal());
+        const newEventButton = $('[data-new-event]');
+        if (newEventButton) newEventButton.addEventListener('click', () => openEventModal());
         $('#event-search').addEventListener('input', (event) => {
           state.eventsFilter.search = event.target.value;
           refreshEventsGrid();
@@ -2431,7 +2537,7 @@
         if (!events.length) {
           grid.innerHTML = `<div class="md:col-span-2 2xl:col-span-3">${emptyState(
             state.eventsFilter.search ? 'Nenhum evento corresponde à busca.' : 'Crie o primeiro evento para começar a distribuir pontos.',
-            { icon: 'calendar-days', title: state.eventsFilter.search ? 'Sem resultados' : 'Agenda vazia', action: '<button type="button" class="btn btn-primary btn-sm mt-1" data-empty-new-event><i data-lucide="calendar-plus"></i> Criar evento</button>' }
+            { icon: 'calendar-days', title: state.eventsFilter.search ? 'Sem resultados' : 'Agenda vazia', action: canManage('events') ? '<button type="button" class="btn btn-primary btn-sm mt-1" data-empty-new-event><i data-lucide="calendar-plus"></i> Criar evento</button>' : '' }
           )}</div>`;
           refreshIcons();
           const createButton = $('[data-empty-new-event]', grid);
@@ -2479,6 +2585,7 @@
       }
 
       async function openEventModal(event = null) {
+        if (!canManage('events')) return;
         const categories = state.meta.categories && state.meta.categories.length ? state.meta.categories : ['Treinamento', 'Campeonato', 'Scrim', 'Reunião', 'Evento Especial', 'Outro'];
         if (!state.seasons.length) {
           try { state.seasons = (await api('/seasons')).seasons; } catch { /* formulário segue sem temporadas */ }
@@ -2593,6 +2700,8 @@
         const date = fmtDateShort(event.date);
         const present = data.members.filter((member) => member.present);
         const isScheduled = event.status === 'scheduled';
+        const canEdit = canManage('events');
+        const interactive = isScheduled && canEdit;
         const overdue = isScheduled && event.date < todayISO();
 
         $('#page').innerHTML = `
@@ -2630,9 +2739,10 @@
                   </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 shrink-0">
-                  ${isScheduled ? `
+                  ${interactive ? `
                     <button type="button" class="btn btn-ghost btn-sm" data-detail-edit><i data-lucide="pencil"></i> Editar</button>
                     <button type="button" class="btn btn-danger btn-sm" data-detail-cancel><i data-lucide="ban"></i> Cancelar</button>` : ''}
+                  ${isScheduled && !canEdit ? '<span class="badge badge-gray"><i data-lucide="eye"></i>Somente visualização</span>' : ''}
                 </div>
               </div>
 
@@ -2656,7 +2766,7 @@
               <div class="p-4 sm:p-5 border-b border-white/6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 class="font-display text-lg font-bold text-white">${isScheduled ? 'Lista de presença' : 'Resultado do evento'}</h3>
-                  <p class="text-[10.5px] text-slate-500 mt-0.5">${isScheduled ? 'Clique em um membro para marcar ou desmarcar presença.' : 'Registro imutável dos pontos creditados.'}</p>
+                  <p class="text-[10.5px] text-slate-500 mt-0.5">${interactive ? 'Clique em um membro para marcar ou desmarcar presença.' : isScheduled ? 'Visualização da lista de presença.' : 'Registro imutável dos pontos creditados.'}</p>
                 </div>
                 <div class="relative w-full sm:w-64">
                   <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600"></i>
@@ -2681,18 +2791,23 @@
                 <div class="border-t border-white/7 my-2"></div>
                 <div class="flex items-end justify-between"><span class="text-slate-500">Total ${isScheduled ? 'a distribuir' : 'distribuído'}</span><span id="event-side-total" class="font-display text-2xl font-bold text-gold leading-none">${fmtNum(isScheduled ? data.totalProjected : event.pointsDistributed)}</span></div>
               </div>
-              ${isScheduled ? `
+              ${interactive ? `
                 <button type="button" id="event-finalize" class="btn btn-gold w-full mt-5 !py-3" ${present.length ? '' : 'disabled'}>
                   <i data-lucide="flag"></i> FINALIZAR EVENTO
                 </button>
                 <p class="text-[9px] text-slate-600 text-center leading-relaxed mt-2.5">A operação distribui os pontos uma única vez e registra o administrador responsável.</p>
+              ` : isScheduled ? `
+                <div class="mt-5 rounded-xl border border-white/8 bg-white/[.025] px-3 py-3">
+                  <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-300"><i data-lucide="eye" class="w-4 h-4"></i> Somente visualização</div>
+                  <p class="text-[9.5px] text-slate-500 mt-1 leading-relaxed">Seu administrador não tem permissão para alterar presenças ou finalizar este evento.</p>
+                </div>
               ` : `
                 <div class="mt-5 rounded-xl border border-emerald-500/18 bg-emerald-500/[.045] px-3 py-3">
                   <div class="flex items-center gap-2 text-[11px] font-semibold text-emerald-300"><i data-lucide="shield-check" class="w-4 h-4"></i> Evento finalizado</div>
                   <p class="text-[9.5px] text-slate-500 mt-1 leading-relaxed">${esc(event.finalizedByName || 'Administrador')} · ${event.finalizedAt ? fmtDateTime(event.finalizedAt) : '—'}</p>
                 </div>
               `}
-              <a href="#/points" class="btn btn-ghost w-full mt-2"><i data-lucide="wallet"></i> Ver carteiras</a>
+              ${can('points') ? '<a href="#/points" class="btn btn-ghost w-full mt-2"><i data-lucide="wallet"></i> Ver carteiras</a>' : ''}
             </aside>
           </div>`;
 
@@ -2702,10 +2817,9 @@
         const search = $('#event-member-search');
         search.addEventListener('input', (event) => renderEventMembersList(event.target.value));
 
-        if (isScheduled) {
-          $('#event-members-list').addEventListener('click', (event) => {
-            if (!isScheduled) return;
-            const row = event.target.closest('[data-attendance-member]');
+        if (interactive) {
+          $('#event-members-list').addEventListener('click', (clickEvent) => {
+            const row = clickEvent.target.closest('[data-attendance-member]');
             if (!row) return;
             toggleAttendance(row.dataset.attendanceMember);
           });
@@ -2714,8 +2828,6 @@
           $('[data-detail-cancel]').addEventListener('click', () => cancelEventAction(event));
           const finalize = $('#event-finalize');
           if (finalize) finalize.addEventListener('click', () => finalizeEventAction(event, data));
-        } else {
-          $('[data-detail-edit]')?.addEventListener('click', () => openEventModal(event));
         }
       }
 
@@ -2741,6 +2853,7 @@
         if (!container || !state.eventDetail) return;
         const event = state.eventDetail.event;
         const isScheduled = event.status === 'scheduled';
+        const interactive = isScheduled && canManage('events');
         const q = query.trim().toLowerCase();
         let members = state.eventDetail.members.filter((member) => !q || `${member.nickname} ${member.playerId} ${member.role}`.toLowerCase().includes(q));
         members = members.slice().sort((a, b) => Number(b.present) - Number(a.present) || a.nickname.localeCompare(b.nickname, 'pt-BR'));
@@ -2752,7 +2865,7 @@
         }
 
         container.innerHTML = members.map((member) => `
-          <div class="attendance-row ${member.present ? 'present' : ''} flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5" data-attendance-member="${esc(member.id)}" ${isScheduled ? 'role="button" tabindex="0"' : ''}>
+          <div class="attendance-row ${member.present ? 'present' : ''} flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5" data-attendance-member="${esc(member.id)}" ${interactive ? 'role="button" tabindex="0"' : ''}>
             ${avatarHTML(member, 'sm')}
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
@@ -2762,7 +2875,7 @@
               <div class="text-[9.5px] text-slate-500 mt-0.5">${esc(member.role)}</div>
             </div>
             ${member.present && member.pointsAwarded ? `<span class="text-[10.5px] font-bold text-emerald-300">+${fmtNum(member.pointsAwarded)}</span>` : ''}
-            ${isScheduled
+            ${interactive
               ? `<div class="switch ${member.present ? 'on' : ''}" aria-hidden="true"></div><span class="text-[9px] font-semibold min-w-[48px] text-right ${member.present ? 'text-neon-light' : 'text-slate-600'}">${member.present ? 'Presente' : 'Ausente'}</span>`
               : `<span class="badge ${member.present ? 'badge-green' : 'badge-gray'}">${member.present ? 'Presente' : 'Ausente'}</span>`}
           </div>`).join('');
@@ -2771,6 +2884,7 @@
 
       async function toggleAttendance(memberId) {
         if (!state.eventDetail || state.eventDetail.event.status !== 'scheduled') return;
+        if (!canManage('events')) return;
         if (state.eventDetail.busyMember) return;
         const member = state.eventDetail.members.find((item) => item.id === memberId);
         if (!member) return;
@@ -2873,20 +2987,250 @@
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         const row = event.target.closest && event.target.closest('[data-attendance-member]');
-        if (!row || event.target.closest('button, a, input')) return;
+        if (!row || event.target.closest('button, a, input') || !canManage('events')) return;
         event.preventDefault();
         toggleAttendance(row.dataset.attendanceMember);
       });
 
       /* ------------------------------------------------------------------ */
+      /* Cartões de Roubo                                                   */
+      /* ------------------------------------------------------------------ */
+
+      async function renderRobberyCards() {
+        const token = ++state.routeToken;
+        $('#page').innerHTML = loadingPage();
+        const data = await api('/robbery-cards?status=all');
+        if (token !== state.routeToken) return;
+        state.robberyMembers = data.members;
+
+        const canWrite = canManage('robbery');
+        $('#page').innerHTML = `
+          ${pageHeader({
+            eyebrow: 'Controle operacional',
+            title: 'Cartões de Roubo',
+            subtitle: 'Acompanhe o total de cartões de roubo de cada membro. Apenas administradores autorizados podem atualizar o total.',
+            actions: canWrite ? '<span class="badge badge-gold"><i data-lucide="shield-check"></i>Você pode atualizar</span>' : '<span class="badge badge-gray"><i data-lucide="eye"></i>Somente visualização</span>',
+          })}
+
+          <div class="grid grid-cols-3 gap-3 mb-4 fade-up delay-1">
+            ${miniMetric('Cartões ativos', fmtNum(data.stats.totalCards), 'scan-line', 'gold')}
+            ${miniMetric('Membros com cartões', fmtNum(data.stats.membersWithCards), 'user-check', 'purple')}
+            ${miniMetric('Membros ativos', fmtNum(data.stats.members), 'users', 'green')}
+          </div>
+
+          <section class="panel p-4 sm:p-5 fade-up delay-2">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+              <div class="flex items-center gap-1 rounded-lg bg-black/25 border border-white/6 p-1 w-fit overflow-x-auto max-w-full">
+                ${[['active', 'Ativos'], ['archived', 'Arquivados'], ['all', 'Todos']].map(([value, label]) => `
+                  <button type="button" class="filter-tab ${state.robberyFilter.status === value ? 'active' : ''}" data-robbery-status="${value}">${label}</button>`).join('')}
+              </div>
+              <div class="relative w-full lg:w-72">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600"></i>
+                <input id="robbery-search" class="input !py-2.5 pl-9" placeholder="Buscar membro..." value="${esc(state.robberyFilter.search)}">
+              </div>
+            </div>
+            <div id="robbery-table-content"></div>
+          </section>`;
+
+        refreshIcons();
+        refreshRobberyTable();
+
+        $('#robbery-search').addEventListener('input', (event) => {
+          state.robberyFilter.search = event.target.value;
+          refreshRobberyTable();
+        });
+        $$('[data-robbery-status]').forEach((tab) => {
+          tab.addEventListener('click', () => {
+            state.robberyFilter.status = tab.dataset.robberyStatus;
+            $$('[data-robbery-status]').forEach((item) => item.classList.toggle('active', item === tab));
+            refreshRobberyTable();
+          });
+        });
+        $('#robbery-table-content').addEventListener('click', (event) => {
+          const action = event.target.closest('[data-robbery-update]');
+          if (!action) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const member = state.robberyMembers.find((item) => item.id === action.dataset.robberyUpdate);
+          if (member) openRobberyModal(member);
+        });
+      }
+
+      function filteredRobberyMembers() {
+        const query = state.robberyFilter.search.trim().toLowerCase();
+        return (state.robberyMembers || [])
+          .filter((member) => state.robberyFilter.status === 'all' || member.status === state.robberyFilter.status)
+          .filter((member) => !query || `${member.nickname} ${member.playerId} ${member.role}`.toLowerCase().includes(query))
+          .sort((a, b) => Number(b.robberyCards || 0) - Number(a.robberyCards || 0) || a.nickname.localeCompare(b.nickname, 'pt-BR'));
+      }
+
+      function refreshRobberyTable() {
+        const container = $('#robbery-table-content');
+        if (!container) return;
+        const members = filteredRobberyMembers();
+        if (!members.length) {
+          const noMembers = !state.robberyMembers || !state.robberyMembers.length;
+          container.innerHTML = emptyState(
+            noMembers ? 'Nenhum membro cadastrado. Cadastre um membro para começar a controlar os cartões.' : 'Nenhum membro corresponde aos filtros.',
+            {
+              icon: 'scan-line',
+              title: noMembers ? 'Nenhum membro' : 'Sem resultados',
+              action: noMembers && canManage('members') ? '<a href="#/members" class="btn btn-primary btn-sm mt-1"><i data-lucide="user-plus"></i> Cadastrar membro</a>' : '',
+            }
+          );
+          refreshIcons();
+          return;
+        }
+        container.innerHTML = `
+          <div class="overflow-x-auto">
+            <table class="data-table">
+              <thead><tr>
+                <th class="!pl-5">Membro</th>
+                <th class="hidden md:table-cell">Cargo</th>
+                <th class="text-right">Cartões</th>
+                <th class="hidden lg:table-cell">Atualizado em</th>
+                <th class="hidden xl:table-cell">Atualizado por</th>
+                <th class="!pr-5 text-right">Ação</th>
+              </tr></thead>
+              <tbody>
+                ${members.map((member) => `
+                  <tr data-robbery-row="${esc(member.id)}">
+                    <td class="!pl-5">
+                      <div class="flex items-center gap-3">
+                        ${avatarHTML(member)}
+                        <div class="min-w-0">
+                          <div class="text-[12.5px] font-semibold text-white truncate">${esc(member.nickname)}</div>
+                          <div class="text-[9.5px] text-slate-500 font-mono">${esc(member.playerId)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="hidden md:table-cell"><span class="badge badge-gray">${esc(member.role)}</span></td>
+                    <td class="text-right">
+                      <span class="inline-flex items-center gap-1.5 rounded-lg border border-gold/20 bg-gold/[.055] px-2.5 py-1.5">
+                        <i data-lucide="scan-line" class="w-3.5 h-3.5 text-gold"></i>
+                        <span class="font-display text-base font-bold text-gold">${fmtNum(member.robberyCards)}</span>
+                      </span>
+                    </td>
+                    <td class="hidden lg:table-cell text-[10px] text-slate-500">${member.robberyCardsUpdatedAt ? fmtDateTime(member.robberyCardsUpdatedAt) : '—'}</td>
+                    <td class="hidden xl:table-cell text-[10px] text-slate-500">${esc(member.robberyCardsUpdatedByName || '—')}</td>
+                    <td class="!pr-5 text-right">
+                      ${canManage('robbery')
+                        ? `<button type="button" class="btn btn-ghost btn-sm" data-robbery-update="${esc(member.id)}"><i data-lucide="pencil"></i> Atualizar</button>`
+                        : can('members') ? `<button type="button" class="icon-btn" data-open-member="${esc(member.id)}" title="Ver perfil"><i data-lucide="eye"></i></button>` : '—'}
+                    </td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="px-5 py-3 border-t border-white/6 text-[9.5px] text-slate-600 flex items-center gap-1.5">
+            <i data-lucide="shield-check" class="w-3 h-3"></i> Cada atualização registra o administrador responsável na auditoria.
+          </div>`;
+        refreshIcons();
+      }
+
+      function openRobberyModal(member) {
+        if (!canManage('robbery')) return;
+        const handle = openModal({
+          title: 'Atualizar cartões de roubo',
+          subtitle: `${member.nickname} · ${member.playerId}`,
+          size: 'max-w-lg',
+          body: `
+            <form id="robbery-form" class="space-y-4" novalidate>
+              <div class="rounded-xl border border-gold/18 bg-gold/[.04] p-4 flex items-center justify-between gap-4">
+                <div>
+                  <div class="text-[9px] uppercase tracking-[.14em] text-slate-500 font-semibold">Total atual</div>
+                  <div class="font-display text-3xl font-bold text-gold mt-1">${fmtNum(member.robberyCards)}</div>
+                </div>
+                <div class="text-right text-[10px] text-slate-500 max-w-[180px] leading-relaxed">
+                  ${member.robberyCardsUpdatedAt ? `Última atualização em ${fmtDateTime(member.robberyCardsUpdatedAt)}` : 'Este membro ainda não teve o total atualizado.'}
+                </div>
+              </div>
+              <div>
+                <label class="field-label" for="robbery-total">Novo total *</label>
+                <div class="relative">
+                  <input id="robbery-total" type="number" min="0" max="1000000000" step="1" class="input !text-2xl font-display font-bold pr-14" value="${member.robberyCards}" required>
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gold">CARTÕES</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="btn btn-ghost btn-sm" data-robbery-delta="-5">−5</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-robbery-delta="-1">−1</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-robbery-delta="1">+1</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-robbery-delta="5">+5</button>
+              </div>
+              <div>
+                <label class="field-label" for="robbery-note">Observação</label>
+                <textarea id="robbery-note" class="textarea" maxlength="300" placeholder="Opcional. Ex.: cartões adquiridos no evento..."></textarea>
+              </div>
+            </form>`,
+          footer: `
+            <button type="button" class="btn btn-ghost" data-modal-close>Cancelar</button>
+            <button type="button" class="btn btn-gold" id="robbery-submit"><i data-lucide="save"></i> Salvar total</button>`,
+        });
+
+        const input = $('#robbery-total', handle.layer);
+        $$('[data-robbery-delta]', handle.layer).forEach((button) => {
+          button.addEventListener('click', () => {
+            const next = Math.max(0, (Number(input.value) || 0) + Number(button.dataset.robberyDelta));
+            input.value = String(next);
+          });
+        });
+        const submit = $('#robbery-submit', handle.layer);
+        submit.addEventListener('click', async () => {
+          const total = Number(input.value);
+          if (!Number.isInteger(total) || total < 0) {
+            toast('Informe um total inteiro maior ou igual a zero.', 'warning');
+            return;
+          }
+          setButtonBusy(submit, true, 'Salvando...');
+          try {
+            await api(`/members/${encodeURIComponent(member.id)}/robbery-cards`, {
+              method: 'PATCH',
+              body: { total, note: $('#robbery-note', handle.layer).value.trim() },
+            });
+            handle.close();
+            toast(`Cartões de roubo de ${member.nickname} atualizados para ${fmtNum(total)}.`, 'success');
+            renderRobberyCards();
+          } catch (error) {
+            toast(error.message, 'error');
+          } finally {
+            setButtonBusy(submit, false);
+          }
+        });
+      }
+
+      /* ------------------------------------------------------------------ */
       /* Pontuação manual                                                   */
       /* ------------------------------------------------------------------ */
+
+      function renderPointLedgerList(transactions, memberMap) {
+        if (!transactions.length) {
+          return emptyState('Nenhuma movimentação recente.', { icon: 'receipt', title: 'Ledger vazio' });
+        }
+        return transactions.map((tx) => {
+          const meta = TX_META[tx.type] || { label: tx.type, icon: 'circle', tone: 'text-slate-300', bg: 'bg-white/5 border-white/10' };
+          const member = memberMap.get(tx.memberId);
+          const amount = Number(tx.amount || 0);
+          return `
+            <button type="button" class="w-full text-left data-list-row flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-white/[.025] transition" ${member ? `data-open-member="${esc(member.id)}"` : ''}>
+              <div class="w-8 h-8 rounded-lg border grid place-items-center shrink-0 ${meta.bg}"><i data-lucide="${meta.icon}" class="w-3.5 h-3.5 ${meta.tone}"></i></div>
+              <div class="min-w-0 flex-1">
+                <div class="text-[11.5px] font-medium text-slate-200 leading-snug truncate">${esc(tx.description)}</div>
+                <div class="text-[9px] text-slate-600 mt-0.5">${esc(member ? member.nickname : 'Membro')} · ${fmtDateTime(tx.createdAt)}</div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-[11px] font-bold ${amount > 0 ? 'text-emerald-300' : amount < 0 ? 'text-red-300' : 'text-slate-500'}">${amount === 0 ? '—' : `${amount > 0 ? '+' : ''}${fmtNum(amount)}`}</div>
+                <div class="text-[8.5px] text-slate-600">${esc(meta.label)}</div>
+              </div>
+            </button>`;
+        }).join('');
+      }
 
       async function renderPoints() {
         const token = ++state.routeToken;
         $('#page').innerHTML = loadingPage();
         const [membersData, transactionsData] = await Promise.all([
-          api('/members?status=all'),
+          api('/member-options?status=all'),
           api('/transactions?limit=14'),
         ]);
         if (token !== state.routeToken) return;
@@ -2894,6 +3238,31 @@
         const activeMembers = state.members.filter((member) => member.status === 'active');
         const memberMap = new Map(state.members.map((member) => [member.id, member]));
         const totalWallets = activeMembers.reduce((sum, member) => sum + Number(member.balance || 0), 0);
+
+        if (!canManage('points')) {
+          $('#page').innerHTML = `
+            ${pageHeader({
+              eyebrow: 'Ledger de pontos',
+              title: 'Pontuação',
+              subtitle: 'Consulta das movimentações financeiras. Seu administrador possui acesso somente para visualização.',
+              actions: can('ranking') ? '<a href="#/ranking" class="btn btn-ghost"><i data-lucide="trophy"></i> Ver ranking</a>' : '',
+            })}
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              ${miniMetric('Saldo em carteiras', fmtCompact(totalWallets), 'wallet', 'gold')}
+              ${miniMetric('Membros ativos', fmtNum(activeMembers.length), 'users', 'purple')}
+            </div>
+            <section class="panel">
+              <div class="p-4 sm:p-5 border-b border-white/6">
+                <h3 class="font-display text-lg font-bold text-white">Últimos lançamentos</h3>
+                <p class="text-[10.5px] text-slate-500 mt-0.5">Trilha financeira recente.</p>
+              </div>
+              <div class="p-2">
+                ${renderPointLedgerList(transactionsData.transactions, memberMap)}
+              </div>
+            </section>`;
+          refreshIcons();
+          return;
+        }
 
         $('#page').innerHTML = `
           ${pageHeader({
@@ -2993,26 +3362,10 @@
                     <h3 class="font-display text-lg font-bold text-white">Últimos lançamentos</h3>
                     <p class="text-[10.5px] text-slate-500 mt-0.5">Trilha financeira recente.</p>
                   </div>
-                  <a href="#/audit" class="icon-btn" title="Abrir auditoria"><i data-lucide="scroll-text"></i></a>
+                  ${can('audit') ? '<a href="#/audit" class="icon-btn" title="Abrir auditoria"><i data-lucide="scroll-text"></i></a>' : ''}
                 </div>
                 <div class="p-2 max-h-[740px] overflow-y-auto">
-                  ${transactionsData.transactions.length ? transactionsData.transactions.map((tx) => {
-                    const meta = TX_META[tx.type] || { label: tx.type, icon: 'circle', tone: 'text-slate-300', bg: 'bg-white/5 border-white/10' };
-                    const member = memberMap.get(tx.memberId);
-                    const amount = Number(tx.amount || 0);
-                    return `
-                      <button type="button" class="w-full text-left data-list-row flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-white/[.025] transition" ${member ? `data-open-member="${esc(member.id)}"` : ''}>
-                        <div class="w-8 h-8 rounded-lg border grid place-items-center shrink-0 ${meta.bg}"><i data-lucide="${meta.icon}" class="w-3.5 h-3.5 ${meta.tone}"></i></div>
-                        <div class="min-w-0 flex-1">
-                          <div class="text-[11.5px] font-medium text-slate-200 leading-snug truncate">${esc(tx.description)}</div>
-                          <div class="text-[9px] text-slate-600 mt-0.5">${esc(member ? member.nickname : 'Membro')} · ${fmtDateTime(tx.createdAt)}</div>
-                        </div>
-                        <div class="text-right shrink-0">
-                          <div class="text-[11px] font-bold ${amount > 0 ? 'text-emerald-300' : amount < 0 ? 'text-red-300' : 'text-slate-500'}">${amount === 0 ? '—' : `${amount > 0 ? '+' : ''}${fmtNum(amount)}`}</div>
-                          <div class="text-[8.5px] text-slate-600">${esc(meta.label)}</div>
-                        </div>
-                      </button>`;
-                  }).join('') : emptyState('Nenhuma movimentação recente.', { icon: 'receipt', title: 'Ledger vazio' })}
+                  ${renderPointLedgerList(transactionsData.transactions, memberMap)}
                 </div>
               </section>
             </div>
@@ -3327,7 +3680,7 @@
             eyebrow: 'Recompensas',
             title: 'Loja de presentes',
             subtitle: 'Cadastre recompensas, controle estoque e disponibilidade. Exclusões são lógicas para preservar o histórico de resgates.',
-            actions: `<button type="button" class="btn btn-primary" data-new-reward><i data-lucide="gift"></i> Novo presente</button>`,
+            actions: canManage('rewards') ? `<button type="button" class="btn btn-primary" data-new-reward><i data-lucide="gift"></i> Novo presente</button>` : '',
           })}
 
           <div class="grid grid-cols-3 gap-3 mb-4 fade-up delay-1">
@@ -3357,7 +3710,8 @@
         refreshIcons();
         refreshRewardsGrid();
 
-        $('[data-new-reward]').addEventListener('click', () => openRewardModal());
+        const newRewardButton = $('[data-new-reward]');
+        if (newRewardButton) newRewardButton.addEventListener('click', () => openRewardModal());
         $('#reward-search').addEventListener('input', refreshRewardsGrid);
         $$('[data-reward-filter]').forEach((tab) => {
           tab.addEventListener('click', () => {
@@ -3396,7 +3750,7 @@
         if (!grid) return;
         const rewards = filteredRewards();
         if (!rewards.length) {
-          grid.innerHTML = `<div class="sm:col-span-2 xl:col-span-3 2xl:col-span-4">${emptyState('Cadastre o primeiro presente para abrir a loja da família.', { icon: 'gift', title: 'Loja vazia', action: '<button type="button" class="btn btn-primary btn-sm mt-1" data-empty-new-reward><i data-lucide="plus"></i> Cadastrar presente</button>' })}</div>`;
+          grid.innerHTML = `<div class="sm:col-span-2 xl:col-span-3 2xl:col-span-4">${emptyState('Cadastre o primeiro presente para abrir a loja da família.', { icon: 'gift', title: 'Loja vazia', action: canManage('rewards') ? '<button type="button" class="btn btn-primary btn-sm mt-1" data-empty-new-reward><i data-lucide="plus"></i> Cadastrar presente</button>' : '' })}</div>`;
           refreshIcons();
           const button = $('[data-empty-new-reward]', grid);
           if (button) button.addEventListener('click', () => openRewardModal());
@@ -3423,12 +3777,13 @@
                   <div class="flex items-center gap-1.5 text-[9.5px] ${soldOut ? 'text-red-300' : 'text-slate-500'}">
                     <i data-lucide="boxes" class="w-3.5 h-3.5"></i>${reward.stock} em estoque
                   </div>
-                  <div class="flex items-center gap-1">
-                    <button type="button" class="icon-btn !w-8 !h-8" title="Editar" data-reward-action="edit" data-reward-id="${esc(reward.id)}"><i data-lucide="pencil"></i></button>
-                    ${reward.archived
-                      ? `<button type="button" class="icon-btn !w-8 !h-8" title="Restaurar" data-reward-action="restore" data-reward-id="${esc(reward.id)}"><i data-lucide="archive-restore"></i></button>`
-                      : `<button type="button" class="icon-btn danger !w-8 !h-8" title="Arquivar (preserva histórico)" data-reward-action="archive" data-reward-id="${esc(reward.id)}"><i data-lucide="archive"></i></button>`}
-                  </div>
+                  ${canManage('rewards') ? `
+                    <div class="flex items-center gap-1">
+                      <button type="button" class="icon-btn !w-8 !h-8" title="Editar" data-reward-action="edit" data-reward-id="${esc(reward.id)}"><i data-lucide="pencil"></i></button>
+                      ${reward.archived
+                        ? `<button type="button" class="icon-btn !w-8 !h-8" title="Restaurar" data-reward-action="restore" data-reward-id="${esc(reward.id)}"><i data-lucide="archive-restore"></i></button>`
+                        : `<button type="button" class="icon-btn danger !w-8 !h-8" title="Arquivar (preserva histórico)" data-reward-action="archive" data-reward-id="${esc(reward.id)}"><i data-lucide="archive"></i></button>`}
+                    </div>` : ''}
                 </div>
               </div>
             </article>`;
@@ -3437,6 +3792,7 @@
       }
 
       function openRewardModal(reward = null) {
+        if (!canManage('rewards')) return;
         const isEdit = Boolean(reward);
         const handle = openModal({
           title: isEdit ? 'Editar presente' : 'Novo presente',
@@ -3589,7 +3945,7 @@
         $('#page').innerHTML = loadingPage();
         const [redemptionsData, membersData, rewardsData] = await Promise.all([
           api('/redemptions'),
-          api('/members?status=active'),
+          api('/member-options?status=active'),
           api('/rewards?status=all'),
         ]);
         if (token !== state.routeToken) return;
@@ -3600,16 +3956,17 @@
         updateRedemptionBadge(redemptionsData.counts.pending || 0);
 
         const counts = redemptionsData.counts;
+        const canWrite = canManage('redemptions');
         const availableRewards = state.rewards.filter((reward) => !reward.archived && reward.available && reward.stock > 0);
-        const canCreate = state.activeMembers.length > 0 && availableRewards.length > 0;
+        const canCreate = canWrite && state.activeMembers.length > 0 && availableRewards.length > 0;
         const reserved = state.redemptions.filter((item) => item.status === 'pending').reduce((sum, item) => sum + Number(item.totalPoints || 0), 0);
 
         $('#page').innerHTML = `
           ${pageHeader({
             eyebrow: 'Recompensas',
             title: 'Resgates',
-            subtitle: 'Aprove, recuse e entregue recompensas. Os pontos são reservados na solicitação e só saem do saldo após a aprovação.',
-            actions: `<button type="button" class="btn btn-primary" data-new-redemption ${canCreate ? '' : 'disabled'}><i data-lucide="shopping-bag"></i> Solicitar resgate</button>`,
+            subtitle: canWrite ? 'Aprove, recuse e entregue recompensas. Os pontos são reservados na solicitação e só saem do saldo após a aprovação.' : 'Consulta dos resgates da família. Seu administrador possui acesso somente para visualização.',
+            actions: canWrite ? `<button type="button" class="btn btn-primary" data-new-redemption ${canCreate ? '' : 'disabled'}><i data-lucide="shopping-bag"></i> Solicitar resgate</button>` : '',
           })}
 
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 fade-up delay-1">
@@ -3641,10 +3998,13 @@
         refreshIcons();
         refreshRedemptionsTable();
 
-        $('[data-new-redemption]').addEventListener('click', () => {
-          if (canCreate) openRedemptionModal();
-          else toast('É necessário ter membros ativos e presentes disponíveis.', 'warning');
-        });
+        const newRedemptionButton = $('[data-new-redemption]');
+        if (newRedemptionButton) {
+          newRedemptionButton.addEventListener('click', () => {
+            if (canCreate) openRedemptionModal();
+            else toast('É necessário ter membros ativos e presentes disponíveis.', 'warning');
+          });
+        }
         $('#redemption-search').addEventListener('input', refreshRedemptionsTable);
         $$('[data-redemption-status]').forEach((tab) => {
           tab.addEventListener('click', () => {
@@ -3680,7 +4040,7 @@
         if (!container) return;
         const items = filteredRedemptions();
         if (!items.length) {
-          container.innerHTML = emptyState('Nenhum resgate neste filtro.', { icon: 'shopping-bag', title: 'Sem resgates', action: '<button type="button" class="btn btn-ghost btn-sm mt-1" data-empty-new-redemption><i data-lucide="plus"></i> Solicitar resgate</button>' });
+          container.innerHTML = emptyState('Nenhum resgate neste filtro.', { icon: 'shopping-bag', title: 'Sem resgates', action: canManage('redemptions') ? '<button type="button" class="btn btn-ghost btn-sm mt-1" data-empty-new-redemption><i data-lucide="plus"></i> Solicitar resgate</button>' : '' });
           refreshIcons();
           const button = $('[data-empty-new-redemption]', container);
           if (button) button.addEventListener('click', () => openRedemptionModal());
@@ -3716,11 +4076,11 @@
                     <td class="!pr-5">
                       <div class="flex items-center justify-end gap-1">
                         <button type="button" class="icon-btn" title="Detalhes" data-redemption-action="view" data-redemption-id="${esc(redemption.id)}"><i data-lucide="eye"></i></button>
-                        ${redemption.status === 'pending' ? `
+                        ${canManage('redemptions') && redemption.status === 'pending' ? `
                           <button type="button" class="btn btn-primary btn-sm" data-redemption-action="approve" data-redemption-id="${esc(redemption.id)}"><i data-lucide="check"></i> Aprovar</button>
                           <button type="button" class="icon-btn danger" title="Recusar" data-redemption-action="reject" data-redemption-id="${esc(redemption.id)}"><i data-lucide="x"></i></button>
                         ` : ''}
-                        ${redemption.status === 'approved' ? `<button type="button" class="btn btn-gold btn-sm" data-redemption-action="deliver" data-redemption-id="${esc(redemption.id)}"><i data-lucide="package-check"></i> Entregar</button>` : ''}
+                        ${canManage('redemptions') && redemption.status === 'approved' ? `<button type="button" class="btn btn-gold btn-sm" data-redemption-action="deliver" data-redemption-id="${esc(redemption.id)}"><i data-lucide="package-check"></i> Entregar</button>` : ''}
                       </div>
                     </td>
                   </tr>`).join('')}
@@ -3732,6 +4092,7 @@
       }
 
       async function openRedemptionModal() {
+        if (!canManage('redemptions')) return;
         const members = (state.activeMembers || []).slice().sort((a, b) => Number(b.balance) - Number(a.balance) || a.nickname.localeCompare(b.nickname, 'pt-BR'));
         const rewards = (state.rewards || [])
           .filter((reward) => !reward.archived && reward.available && reward.stock > 0)
@@ -3982,7 +4343,7 @@
             eyebrow: 'Ciclos competitivos',
             title: 'Temporadas',
             subtitle: 'Cada temporada possui ranking independente. Ativar uma nova temporada nunca apaga carteiras ou pontos históricos.',
-            actions: `<button type="button" class="btn btn-primary" data-new-season><i data-lucide="layers"></i> Nova temporada</button>`,
+            actions: canManage('seasons') ? `<button type="button" class="btn btn-primary" data-new-season><i data-lucide="layers"></i> Nova temporada</button>` : '',
           })}
 
           <div class="grid grid-cols-3 gap-3 mb-4 fade-up delay-1">
@@ -4016,15 +4377,15 @@
                       <div class="rounded-xl border border-white/7 bg-black/20 p-3 text-center"><div class="font-display text-lg font-bold text-gold">${fmtCompact(active.points)}</div><div class="text-[8px] uppercase tracking-wide text-slate-500 mt-0.5">Pontos</div></div>
                     </div>
                     <div class="flex gap-2">
-                      <a href="#/ranking?period=season&season=${esc(active.id)}" class="btn btn-gold flex-1"><i data-lucide="trophy"></i> Ver ranking</a>
-                      <button type="button" class="btn btn-danger" data-close-season="${esc(active.id)}" title="Encerrar temporada"><i data-lucide="flag"></i></button>
+                      ${can('ranking') ? `<a href="#/ranking?period=season&season=${esc(active.id)}" class="btn btn-gold flex-1"><i data-lucide="trophy"></i> Ver ranking</a>` : ''}
+                      ${canManage('seasons') ? `<button type="button" class="btn btn-danger" data-close-season="${esc(active.id)}" title="Encerrar temporada"><i data-lucide="flag"></i></button>` : ''}
                     </div>
                   </div>
                 </div>
               </div>
             </section>` : `
             <section class="panel mb-4 fade-up delay-2">
-              ${emptyState('Nenhuma temporada ativa. Ative um rascunho para começar a contabilizar o ranking do novo ciclo.', { icon: 'layers', title: 'Sem temporada ativa', action: '<button type="button" class="btn btn-primary btn-sm mt-1" data-new-season-empty><i data-lucide="plus"></i> Criar temporada</button>' })}
+              ${emptyState('Nenhuma temporada ativa. Ative um rascunho para começar a contabilizar o ranking do novo ciclo.', { icon: 'layers', title: 'Sem temporada ativa', action: canManage('seasons') ? '<button type="button" class="btn btn-primary btn-sm mt-1" data-new-season-empty><i data-lucide="plus"></i> Criar temporada</button>' : '' })}
             </section>`}
 
           <section class="panel p-4 sm:p-5 fade-up delay-3">
@@ -4055,8 +4416,8 @@
                       <div class="text-center rounded-lg bg-black/20 py-2"><div class="text-[11px] font-bold text-gold">${fmtCompact(season.points)}</div><div class="text-[8px] text-slate-600 uppercase">Pontos</div></div>
                     </div>
                     <div class="flex gap-2 mt-3">
-                      <a href="#/ranking?period=season&season=${esc(season.id)}" class="btn btn-ghost btn-sm flex-1"><i data-lucide="trophy"></i> Ranking histórico</a>
-                      ${season.status === 'draft' ? `<button type="button" class="btn btn-primary btn-sm" data-activate-season="${esc(season.id)}"><i data-lucide="play"></i> Ativar</button>` : ''}
+                      ${can('ranking') ? `<a href="#/ranking?period=season&season=${esc(season.id)}" class="btn btn-ghost btn-sm flex-1"><i data-lucide="trophy"></i> Ranking histórico</a>` : ''}
+                      ${canManage('seasons') && season.status === 'draft' ? `<button type="button" class="btn btn-primary btn-sm" data-activate-season="${esc(season.id)}"><i data-lucide="play"></i> Ativar</button>` : ''}
                     </div>
                   </div>`).join('')
                 : emptyState('Ainda não há outras temporadas.', { icon: 'layers', title: 'Sem histórico' })}
@@ -4064,7 +4425,8 @@
           </section>`;
 
         refreshIcons();
-        $('[data-new-season]').addEventListener('click', () => openSeasonModal());
+        const newSeasonButton = $('[data-new-season]');
+        if (newSeasonButton) newSeasonButton.addEventListener('click', () => openSeasonModal());
         const emptyNew = $('[data-new-season-empty]');
         if (emptyNew) emptyNew.addEventListener('click', () => openSeasonModal());
         $$('[data-activate-season]').forEach((button) => button.addEventListener('click', () => activateSeasonAction(button.dataset.activateSeason)));
@@ -4072,6 +4434,7 @@
       }
 
       function openSeasonModal() {
+        if (!canManage('seasons')) return;
         const currentYear = new Date().getFullYear();
         const handle = openModal({
           title: 'Nova temporada',
@@ -4207,6 +4570,11 @@
         'member.restored': 'Membro restaurado',
         'points.added': 'Pontos adicionados',
         'points.removed': 'Pontos removidos',
+        'robbery_cards.updated': 'Cartões de roubo atualizados',
+        'admin.created': 'Administrador criado',
+        'admin.updated': 'Administrador atualizado',
+        'admin.deactivated': 'Administrador desativado',
+        'admin.reactivated': 'Administrador reativado',
         'event.created': 'Evento criado',
         'event.updated': 'Evento atualizado',
         'event.attendance': 'Presença alterada',
@@ -4386,12 +4754,320 @@
       }
 
       /* ------------------------------------------------------------------ */
+      /* Administradores (somente owner)                                    */
+      /* ------------------------------------------------------------------ */
+
+      async function renderAdmins() {
+        if (!isOwner()) return;
+        const token = ++state.routeToken;
+        $('#page').innerHTML = loadingPage();
+        const data = await api('/admins');
+        if (token !== state.routeToken) return;
+        state.admins = data.admins;
+        state.adminModules = data.modules || state.meta.modules || [];
+        const activeCount = data.admins.filter((admin) => admin.active).length;
+        const secondaryCount = data.admins.filter((admin) => admin.role !== 'owner').length;
+
+        $('#page').innerHTML = `
+          ${pageHeader({
+            eyebrow: 'Equipe administrativa',
+            title: 'Administradores',
+            subtitle: 'Cadastre administradores secundários e defina exatamente quais módulos cada um pode visualizar ou gerenciar.',
+            actions: '<button type="button" class="btn btn-primary" data-new-admin><i data-lucide="user-plus"></i> Novo administrador</button>',
+          })}
+
+          <div class="grid grid-cols-3 gap-3 mb-4 fade-up delay-1">
+            ${miniMetric('Administradores', fmtNum(data.admins.length), 'shield-check', 'purple')}
+            ${miniMetric('Ativos', fmtNum(activeCount), 'circle-check', 'green')}
+            ${miniMetric('Secundários', fmtNum(secondaryCount), 'users', 'gold')}
+          </div>
+
+          <section class="panel fade-up delay-2">
+            <div class="p-4 sm:p-5 border-b border-white/6 flex items-center justify-between gap-3">
+              <div>
+                <h3 class="font-display text-lg font-bold text-white">Equipe com acesso ao painel</h3>
+                <p class="text-[10.5px] text-slate-500 mt-0.5">O administrador principal tem acesso total e não pode ser alterado por esta tela.</p>
+              </div>
+              <span class="badge badge-gray"><i data-lucide="lock"></i>Somente principal</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="data-table">
+                <thead><tr>
+                  <th class="!pl-5">Administrador</th>
+                  <th>Tipo</th>
+                  <th class="hidden lg:table-cell">Módulos liberados</th>
+                  <th class="text-center hidden sm:table-cell">Sessões</th>
+                  <th class="hidden xl:table-cell">Último acesso</th>
+                  <th class="text-center">Status</th>
+                  <th class="!pr-5 text-right">Ações</th>
+                </tr></thead>
+                <tbody>
+                  ${data.admins.map((admin) => {
+                    const owner = admin.role === 'owner';
+                    const allowed = admin.permissions || [];
+                    const modules = (data.modules || []).filter((module) => allowed.includes(`${module.key}:view`));
+                    const manageCount = modules.filter((module) => allowed.includes(`${module.key}:manage`)).length;
+                    const chips = modules.slice(0, 4).map((module) => {
+                      const manage = allowed.includes(`${module.key}:manage`);
+                      return `<span class="badge ${manage ? 'badge-gold' : 'badge-gray'}"><i data-lucide="${MODULE_ICONS[module.key] || 'square'}"></i>${esc(module.label)}${manage ? '' : ' · ver'}</span>`;
+                    }).join('');
+                    const modulesCell = owner
+                      ? '<span class="badge badge-gold"><i data-lucide="shield-check"></i>Acesso total</span>'
+                      : modules.length
+                        ? `<div class="flex flex-wrap gap-1">${chips}${modules.length > 4 ? `<span class="badge badge-gray">+${modules.length - 4}</span>` : ''}</div><div class="text-[9px] text-slate-600 mt-1">${manageCount} com permissão de gerenciar</div>`
+                        : '<span class="text-[10px] text-slate-600">Sem módulos</span>';
+                    const actionCell = owner
+                      ? '<span class="text-[9.5px] text-slate-600">Protegido</span>'
+                      : `<button type="button" class="icon-btn" title="Editar permissões" data-admin-edit="${esc(admin.id)}"><i data-lucide="pencil"></i></button>`;
+                    return `
+                      <tr>
+                        <td class="!pl-5">
+                          <div class="flex items-center gap-3">
+                            <div class="avatar sm"><span>${esc(initials(admin.displayName))}</span></div>
+                            <div class="min-w-0">
+                              <div class="text-[12.5px] font-semibold text-white truncate">${esc(admin.displayName)}</div>
+                              <div class="text-[9.5px] text-slate-500 font-mono">@${esc(admin.username)}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>${owner ? '<span class="badge badge-gold"><i data-lucide="crown"></i>Principal</span>' : '<span class="badge badge-purple"><i data-lucide="shield"></i>Secundário</span>'}</td>
+                        <td class="hidden lg:table-cell">${modulesCell}</td>
+                        <td class="text-center hidden sm:table-cell text-[11px] text-slate-400">${admin.sessionCount}</td>
+                        <td class="hidden xl:table-cell text-[10px] text-slate-500">${admin.lastLoginAt ? fmtDateTime(admin.lastLoginAt) : 'Nunca acessou'}</td>
+                        <td class="text-center">${admin.active ? '<span class="badge badge-green"><i data-lucide="circle-check"></i>Ativo</span>' : '<span class="badge badge-red"><i data-lucide="shield-off"></i>Inativo</span>'}</td>
+                        <td class="!pr-5 text-right">${actionCell}</td>
+                      </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </section>`;
+
+        refreshIcons();
+        $('[data-new-admin]').addEventListener('click', () => openAdminModal());
+        $$('[data-admin-edit]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const admin = state.admins.find((item) => item.id === button.dataset.adminEdit);
+            if (admin) openAdminModal(admin);
+          });
+        });
+      }
+
+      function openAdminModal(admin = null) {
+        if (!isOwner()) return;
+        const isEdit = Boolean(admin);
+        const modules = state.adminModules || state.meta.modules || [];
+        const permissions = isEdit ? admin.permissions || [] : [];
+        const groups = [...new Set(modules.map((module) => module.group))];
+
+        const permissionRows = groups.map((group) => `
+          <div class="mt-3 first:mt-0">
+            <div class="text-[9px] uppercase tracking-[.14em] text-slate-600 font-bold mb-2">${esc(group)}</div>
+            <div class="space-y-1.5">
+              ${modules.filter((module) => module.group === group).map((module) => {
+                const view = permissions.includes(`${module.key}:view`) || permissions.includes(`${module.key}:manage`);
+                const manage = permissions.includes(`${module.key}:manage`);
+                return `
+                  <div class="flex items-center justify-between gap-3 rounded-lg border border-white/7 bg-white/[.018] px-3 py-2.5">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <i data-lucide="${MODULE_ICONS[module.key] || 'square'}" class="w-3.5 h-3.5 text-slate-500"></i>
+                      <span class="text-[11.5px] text-slate-300 truncate">${esc(module.label)}</span>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                      <label class="flex items-center gap-1.5 text-[9.5px] text-slate-400 cursor-pointer">
+                        <input type="checkbox" class="w-3.5 h-3.5 accent-[#8b5cf6]" data-perm-view="${esc(module.key)}" ${view ? 'checked' : ''}> Ver
+                      </label>
+                      ${module.manageable
+                        ? `<label class="flex items-center gap-1.5 text-[9.5px] text-slate-400 cursor-pointer"><input type="checkbox" class="w-3.5 h-3.5 accent-[#f6d365]" data-perm-manage="${esc(module.key)}" ${manage ? 'checked' : ''}> Gerenciar</label>`
+                        : '<span class="text-[8.5px] text-slate-600 uppercase tracking-wide">Somente ver</span>'}
+                    </div>
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>`).join('');
+
+        const handle = openModal({
+          title: isEdit ? 'Editar administrador' : 'Novo administrador',
+          subtitle: isEdit ? `@${admin.username} · configure os módulos permitidos` : 'Crie um acesso secundário e escolha exatamente o que ele pode fazer.',
+          size: 'max-w-3xl',
+          body: `
+            <form id="admin-form" class="space-y-4" novalidate>
+              <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="field-label" for="admin-username">Usuário *</label>
+                  <input id="admin-username" class="input" maxlength="40" value="${esc(isEdit ? admin.username : '')}" ${isEdit ? 'disabled' : ''} placeholder="Ex.: moderador">
+                  ${isEdit ? '<p class="text-[9px] text-slate-600 mt-1">O usuário não pode ser alterado.</p>' : '<p class="text-[9px] text-slate-600 mt-1">Letras, números, ponto, hífen ou underline.</p>'}
+                </div>
+                <div>
+                  <label class="field-label" for="admin-display-name">Nome de exibição *</label>
+                  <input id="admin-display-name" class="input" maxlength="60" value="${esc(isEdit ? admin.displayName : '')}" placeholder="Ex.: Moderador Navoz">
+                </div>
+              </div>
+              <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="field-label" for="admin-password">${isEdit ? 'Nova senha (opcional)' : 'Senha *'}</label>
+                  <input id="admin-password" type="password" class="input" maxlength="72" autocomplete="new-password" placeholder="${isEdit ? 'Deixe em branco para manter' : 'Mínimo 8 caracteres, com letra e número'}">
+                  ${isEdit ? '<p class="text-[9px] text-slate-600 mt-1">Se preencher, as sessões atuais desse admin serão encerradas.</p>' : ''}
+                </div>
+                ${isEdit ? `
+                  <div>
+                    <label class="field-label">Status do acesso</label>
+                    <label class="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[.02] px-3 py-2.5 cursor-pointer">
+                      <span class="text-[11px] text-slate-300">Administrador ativo</span>
+                      <input id="admin-active" type="checkbox" class="sr-only" ${admin.active ? 'checked' : ''}>
+                      <span id="admin-active-switch" class="switch ${admin.active ? 'on' : ''}"></span>
+                    </label>
+                  </div>` : '<div></div>'}
+              </div>
+              <div>
+                <div class="flex items-center justify-between gap-3">
+                  <label class="field-label !mb-0">Módulos liberados *</label>
+                  <span class="text-[9px] text-slate-600">Gerenciar inclui visualizar</span>
+                </div>
+                <div class="mt-2 rounded-xl border border-white/7 bg-black/20 p-3 max-h-[330px] overflow-y-auto">
+                  ${permissionRows}
+                </div>
+              </div>
+              <div class="rounded-xl border border-gold/15 bg-gold/[.035] px-3.5 py-3 flex items-start gap-2.5">
+                <i data-lucide="shield-check" class="w-4 h-4 text-gold mt-0.5"></i>
+                <p class="text-[10px] leading-relaxed text-slate-400">Administradores secundários não podem criar outros administradores nem alterar permissões. Todas as ações são auditadas.</p>
+              </div>
+            </form>`,
+          footer: `
+            <button type="button" class="btn btn-ghost" data-modal-close>Cancelar</button>
+            <button type="button" class="btn btn-primary" id="admin-submit"><i data-lucide="${isEdit ? 'save' : 'user-plus'}"></i> ${isEdit ? 'Salvar administrador' : 'Criar administrador'}</button>`,
+        });
+
+        const activeInput = $('#admin-active', handle.layer);
+        if (activeInput) {
+          activeInput.addEventListener('change', () => {
+            $('#admin-active-switch', handle.layer).classList.toggle('on', activeInput.checked);
+          });
+        }
+
+        $$('[data-perm-manage]', handle.layer).forEach((manageCheckbox) => {
+          const viewCheckbox = $(`[data-perm-view="${manageCheckbox.dataset.permManage}"]`, handle.layer);
+          manageCheckbox.addEventListener('change', () => {
+            if (manageCheckbox.checked) viewCheckbox.checked = true;
+          });
+          viewCheckbox.addEventListener('change', () => {
+            if (!viewCheckbox.checked) manageCheckbox.checked = false;
+          });
+        });
+
+        const submit = $('#admin-submit', handle.layer);
+        submit.addEventListener('click', async () => {
+          const username = $('#admin-username', handle.layer).value.trim();
+          const displayName = $('#admin-display-name', handle.layer).value.trim();
+          const password = $('#admin-password', handle.layer).value;
+          const active = activeInput ? activeInput.checked : true;
+          const selectedPermissions = [];
+          $$('[data-perm-view]', handle.layer).forEach((viewCheckbox) => {
+            const moduleKey = viewCheckbox.dataset.permView;
+            const manageCheckbox = $(`[data-perm-manage="${moduleKey}"]`, handle.layer);
+            if (manageCheckbox && manageCheckbox.checked) selectedPermissions.push(`${moduleKey}:manage`);
+            else if (viewCheckbox.checked) selectedPermissions.push(`${moduleKey}:view`);
+          });
+
+          if (!isEdit && !/^[A-Za-z0-9._-]{2,40}$/.test(username)) {
+            toast('Informe um usuário válido (letras, números, ponto, hífen ou underline).', 'warning');
+            return;
+          }
+          if (displayName.length < 2) {
+            toast('Informe o nome de exibição.', 'warning');
+            return;
+          }
+          if (!isEdit && password.length < 8) {
+            toast('A senha deve ter pelo menos 8 caracteres.', 'warning');
+            return;
+          }
+          if (isEdit && password && password.length < 8) {
+            toast('A nova senha deve ter pelo menos 8 caracteres.', 'warning');
+            return;
+          }
+          if (!selectedPermissions.length) {
+            toast('Selecione pelo menos um módulo para este administrador.', 'warning');
+            return;
+          }
+
+          const payload = {
+            displayName,
+            permissions: selectedPermissions,
+            active,
+          };
+          if (!isEdit) {
+            payload.username = username;
+            payload.password = password;
+          } else if (password) {
+            payload.password = password;
+          }
+
+          setButtonBusy(submit, true, isEdit ? 'Salvando...' : 'Criando...');
+          try {
+            if (isEdit) await api(`/admins/${encodeURIComponent(admin.id)}`, { method: 'PATCH', body: payload });
+            else await api('/admins', { method: 'POST', body: payload });
+            handle.close();
+            toast(isEdit ? 'Administrador atualizado.' : 'Administrador criado com sucesso.', 'success');
+            renderAdmins();
+          } catch (error) {
+            toast(error.message, 'error');
+          } finally {
+            setButtonBusy(submit, false);
+          }
+        });
+      }
+
+      /* ------------------------------------------------------------------ */
       /* Roteador e boot                                                    */
       /* ------------------------------------------------------------------ */
 
       async function renderRoute() {
         if (!state.admin) return;
         const { root, parts, params } = parseHash();
+        const knownRoutes = [
+          'dashboard', 'members', 'events', 'event', 'ranking', 'points',
+          'robbery', 'rewards', 'redemptions', 'seasons', 'audit', 'admins',
+        ];
+        if (!knownRoutes.includes(root)) {
+          closeSidebar();
+          const fallback = allowedRouteFallback();
+          $('#page').innerHTML = `
+            <div class="min-h-[60vh] grid place-items-center">
+              <div class="text-center">
+                <div class="font-display text-7xl font-bold text-white/10">404</div>
+                <p class="text-[13px] text-slate-500 mt-2">Esta página não existe.</p>
+                <a href="#/${esc(fallback)}" class="btn btn-primary mt-5"><i data-lucide="layout-dashboard"></i> Voltar ao início</a>
+              </div>
+            </div>`;
+          refreshIcons();
+          return;
+        }
+
+        const ownerPage = root === 'admins';
+        const moduleKey = routeModule(root);
+        if ((ownerPage && !isOwner()) || (!ownerPage && !can(moduleKey))) {
+          const fallback = allowedRouteFallback();
+          if (fallback && fallback !== root) {
+            navigate(fallback);
+            return;
+          }
+          closeSidebar();
+          state.route = root;
+          setActiveNav(root);
+          $('#page').innerHTML = `
+            <div class="min-h-[60vh] grid place-items-center">
+              <div class="panel p-8 max-w-md w-full text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 border border-red-500/20 grid place-items-center text-red-300 mb-5">
+                  <i data-lucide="shield-off" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-display text-2xl font-bold text-white">Acesso restrito</h3>
+                <p class="text-[12px] text-slate-500 mt-2 leading-relaxed">Seu administrador não possui permissão para acessar este módulo.</p>
+              </div>
+            </div>`;
+          refreshIcons();
+          return;
+        }
+
         state.route = root;
         closeSidebar();
         setActiveNav(root);
@@ -4406,17 +5082,19 @@
           else if (root === 'event' && parts[1]) await renderEventDetail(parts[1]);
           else if (root === 'ranking') await renderRanking(params);
           else if (root === 'points') await renderPoints();
+          else if (root === 'robbery') await renderRobberyCards();
           else if (root === 'rewards') await renderRewards();
           else if (root === 'redemptions') await renderRedemptions();
           else if (root === 'seasons') await renderSeasons();
           else if (root === 'audit') await renderAudit();
+          else if (root === 'admins') await renderAdmins();
           else {
-                $('#page').innerHTML = `
+            $('#page').innerHTML = `
               <div class="min-h-[60vh] grid place-items-center">
                 <div class="text-center">
                   <div class="font-display text-7xl font-bold text-white/10">404</div>
                   <p class="text-[13px] text-slate-500 mt-2">Esta página não existe.</p>
-                  <a href="#/dashboard" class="btn btn-primary mt-5"><i data-lucide="layout-dashboard"></i> Voltar ao painel</a>
+                  <a href="#/${esc(allowedRouteFallback())}" class="btn btn-primary mt-5"><i data-lucide="layout-dashboard"></i> Voltar ao início</a>
                 </div>
               </div>`;
           }
@@ -4483,9 +5161,8 @@
             state.meta = me.meta || state.meta;
             updateSeasonUI(me.activeSeason);
             showApp();
-            setActiveNav('dashboard');
             if (location.hash && location.hash !== '#/') await renderRoute();
-            else location.hash = '#/dashboard';
+            else location.hash = `#/${landingRoute()}`;
             toast(`Bem-vindo de volta, ${data.admin.displayName || data.admin.username}.`, 'success', 'Acesso autorizado');
             form.reset();
           } catch (error) {
@@ -4627,7 +5304,7 @@
           sessionStorage.setItem('navoz_csrf', me.csrfToken);
           showApp();
           if (!location.hash || location.hash === '#/' || location.hash === '#') {
-            location.hash = '#/dashboard';
+            location.hash = `#/${landingRoute()}`;
           } else {
             await renderRoute();
           }

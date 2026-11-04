@@ -263,6 +263,23 @@ Por robustez, o front-end também envia os cabeçalhos `X-Navoz-Route` e `X-Navo
 - eventos finalizados e cancelados ficam somente leitura;
 - evento cancelado não distribui pontos.
 
+### Cartões de Roubo
+- módulo dedicado com o total de cartões de roubo por membro;
+- busca, filtros por status e ordenação por quantidade;
+- atualização manual do total pelo administrador autorizado, com observação opcional;
+- registro do administrador e da data da última atualização;
+- auditoria de cada alteração.
+
+### Administração de administradores
+- o administrador principal (`owner`) cria administradores secundários;
+- permissões por módulo com dois níveis: **visualizar** e **gerenciar**;
+- módulos de leitura (Visão geral, Ranking e Auditoria) permitem apenas visualização;
+- menu, rotas, botões e APIs respeitam as permissões;
+- alteração de permissões vale imediatamente para a sessão ativa;
+- desativação e redefinição de senha encerram as sessões do administrador afetado;
+- o administrador principal não pode ser alterado nem desativado por essa tela;
+- todas as operações administrativas são auditadas.
+
 ### Pontuação manual
 - adicionar ou retirar pontos com justificativa obrigatória;
 - idempotência por chave (evita duplo clique/reenvio);
@@ -307,6 +324,9 @@ Por robustez, o front-end também envia os cabeçalhos `X-Navoz-Route` e `X-Navo
 - validação de `Origin` nas requisições de escrita;
 - rate limit persistido no MongoDB para login (IP + usuário) e operações administrativas;
 - autenticação e autorização verificadas em todas as rotas administrativas;
+- RBAC por módulo (`view` / `manage`) validado no servidor em cada endpoint;
+- criação e edição de administradores exclusiva do `owner`;
+- sessões invalidadas ao desativar um administrador ou redefinir sua senha;
 - validação server-side de todos os valores; o navegador nunca envia saldo;
 - ObjectId e projeções explícitas;
 - CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, HSTS;
@@ -330,9 +350,14 @@ Todas as rotas administrativas exigem sessão. `POST`, `PATCH` e `DELETE` també
 | `POST` | `/api/auth/logout` | logout |
 | `POST` | `/api/auth/password` | alterar senha |
 | `GET` | `/api/dashboard` | métricas, gráfico, top 5, atividade |
+| `GET` | `/api/member-options` | seletor interno de membros |
 | `GET/POST` | `/api/members` | listar/criar membros |
 | `GET/PATCH/DELETE` | `/api/members/:id` | perfil/editar/arquivar |
 | `POST` | `/api/members/:id/restore` | restaurar |
+| `PATCH` | `/api/members/:id/robbery-cards` | atualizar total de cartões |
+| `GET` | `/api/robbery-cards` | listar totais de cartões |
+| `GET/POST` | `/api/admins` | listar/criar administradores (owner) |
+| `PATCH` | `/api/admins/:id` | permissões/status/senha (owner) |
 | `GET` | `/api/transactions` | histórico financeiro |
 | `POST` | `/api/points` | lançamento manual |
 | `GET/POST` | `/api/events` | listar/criar eventos |
