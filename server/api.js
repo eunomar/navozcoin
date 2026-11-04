@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { ObjectId } = require('mongodb');
-const { collections, ensureIndexes, withTransaction, ping } = require('./db');
+const { collections, ensureIndexes, withTransaction, ping, getDbName } = require('./db');
 const {
   HttpError,
   SESSION_TTL_SECONDS,
@@ -2548,8 +2548,42 @@ async function route(req, res) {
 
   if (segments.length === 1 && segments[0] === 'health') {
     if (method !== 'GET') methodNotAllowed(res, ['GET']);
-    await ping();
-    return json(res, 200, { ok: true, service: 'navozcoin-api', time: new Date() });
+    const uriConfigured = Boolean((process.env.MONGODB_URI || '').trim());
+    const checks = {
+      mongodbUriConfigured: uriConfigured,
+      database: uriConfigured ? getDbName() : null,
+      atlasReachable: false,
+    };
+    try {
+      await ping();
+      checks.atlasReachable = true;
+      return json(res, 200, {
+        ok: true,
+        service: 'navozcoin-api',
+        checks,
+        time: new Date(),
+      });
+    } catch (error) {
+      const reason = !uriConfigured
+        ? 'MONGODB_URI_MISSING'
+        : error && error.name === 'MongoServerSelectionError'
+          ? 'ATLAS_UNREACHABLE'
+          : 'DATABASE_CONNECTION_FAILED';
+      return json(res, 503, {
+        ok: false,
+        service: 'navozcoin-api',
+        checks,
+        error: {
+          code: 'DATABASE_UNAVAILABLE',
+          reason,
+          message:
+            reason === 'MONGODB_URI_MISSING'
+              ? 'A variável MONGODB_URI não está configurada na Vercel.'
+              : 'O MongoDB Atlas não respondeu. Verifique a URI e o Network Access (libere 0.0.0.0/0 para a Vercel).',
+        },
+        time: new Date(),
+      });
+    }
   }
 
   if (segments[0] === 'auth') {
@@ -2742,7 +2776,9 @@ async function handler(req, res) {
       return;
     }
     assertOrigin(req);
-    await ensureIndexes();
+    const segments = routeSegments(req);
+    const isHealthCheck = segments.length === 1 && segments[0] === 'health';
+    if (!isHealthCheck) await ensureIndexes();
     await route(req, res);
   } catch (err) {
     if (res.headersSent) {
@@ -2774,10 +2810,14 @@ async function handler(req, res) {
 
     if (err && (err.code === 'DB_NOT_CONFIGURED' || err.name === 'MongoServerSelectionError')) {
       console.error(`[${requestId}] database unavailable`, err.message);
+      const missingUri = err.code === 'DB_NOT_CONFIGURED';
       return json(res, 503, {
         error: {
           code: 'DATABASE_UNAVAILABLE',
-          message: 'Banco de dados indisponível. Verifique a configuração do MongoDB Atlas.',
+          reason: missingUri ? 'MONGODB_URI_MISSING' : 'ATLAS_UNREACHABLE',
+          message: missingUri
+            ? 'MONGODB_URI não está configurada no servidor. Execute `npm run deploy` para enviá-la à Vercel.'
+            : 'O MongoDB Atlas não respondeu. Verifique o Network Access (0.0.0.0/0) e a URI configurada.',
           requestId,
         },
       });

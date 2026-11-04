@@ -72,7 +72,7 @@ O banco, as coleções e os índices são criados automaticamente pelo seed. Nã
 
 ### Variáveis de ambiente
 
-Copie o modelo:
+O projeto já inclui um `.env.local` funcional neste ambiente local, e ele está no `.gitignore`. Para recriar em outro computador, copie o modelo:
 
 ```bash
 cp .env.example .env.local
@@ -84,8 +84,6 @@ No Windows PowerShell:
 Copy-Item .env.example .env.local
 ```
 
-Preencha:
-
 | Variável | Obrigatória | Descrição |
 |---|---|---|
 | `MONGODB_URI` | sim | String de conexão do Atlas, com o banco `navozcoin` |
@@ -95,8 +93,10 @@ Preencha:
 | `ADMIN_DISPLAY_NAME` | não | Nome exibido no painel |
 | `APP_ORIGIN` | recomendado | Origem exata do deploy, ex.: `https://navozcoin.vercel.app` |
 | `APP_TIMEZONE` | não | Fuso operacional; padrão `America/Sao_Paulo` |
+| `VERCEL_PROJECT` | não | Nome do projeto na Vercel; padrão `navozcoin` |
+| `PRODUCTION_ORIGIN` | não | URL pública de produção usada pelo deploy |
 
-> O `.env.local` está no `.gitignore`. Em produção, cadastre as variáveis no painel da Vercel. Nunca comite credenciais.
+> O `.env.local` nunca vai para o Git. O comando `npm run deploy` lê esse arquivo e envia as variáveis para a Vercel automaticamente — você **não precisa abrir o dashboard** para configurá-las.
 
 ---
 
@@ -138,38 +138,80 @@ Ele confirma que a soma de `balance`, `reserved`, `totalEarned` e `totalSpent` d
 
 ---
 
-## 6. Executar localmente
+## 6. Executar localmente (sem configurar nada)
 
-A forma recomendada é usar o ambiente serverless da Vercel:
+Com o `.env.local` já presente:
 
 ```bash
 npm install
-npx vercel dev
+npm run dev
 ```
 
-Na primeira execução, o CLI pede para vincular o projeto e criar/baixar as variáveis. Alternativamente:
+Abra **http://localhost:3000**. O script [`scripts/dev-server.js`](scripts/dev-server.js) serve o `index.html` e executa o mesmo handler serverless localmente, usando o Atlas. Não precisa de login na Vercel, link de projeto nem `vercel dev`.
 
-1. Crie um projeto na Vercel apontando para o repositório.
-2. Cadastre as variáveis em **Settings → Environment Variables**.
-3. Rode `vercel env pull .env.local` e depois `npx vercel dev`.
+```bash
+npm run seed       # apenas se o banco estiver vazio
+npm run check      # diagnóstico opcional de conexão e ledger
+```
 
-O site abre em `http://localhost:3000` (ou na porta informada pelo CLI). O `APP_ORIGIN` local deve ser `http://localhost:3000`.
+Para testar pelo ambiente oficial da Vercel, existe `npm run dev:vercel` (opcional; exige Vercel CLI autenticado).
 
-> O seed roda direto no Node (`npm run seed`) e não precisa da Vercel ligada.
+> O `scripts/dev-server.js` é **apenas para desenvolvimento**. Em produção, a aplicação continua sendo estático + função serverless.
 
 ---
 
-## 7. Publicar na Vercel
+## 7. Publicar na Vercel (um comando, sem configurar o dashboard)
 
-1. Envie o projeto para um repositório Git.
-2. Importe o repositório na Vercel.
-3. Framework preset: **Other** (não há build de frontend).
-4. Configure as variáveis de ambiente da seção 4.
-5. Ajuste `APP_ORIGIN` para a URL final, por exemplo `https://navozcoin.vercel.app`.
-6. Faça o deploy. A raiz serve `index.html`; `/api/*` é reescrito para a função `api/index.js` pelo `vercel.json`.
-7. Acesse, entre com o administrador do seed e troque a senha.
+```bash
+npm run deploy
+```
 
-Se usar domínio próprio, adicione também a URL do domínio em `APP_ORIGIN` (separando múltiplas origens por vírgula).
+O script [`scripts/deploy.js`](scripts/deploy.js):
+
+1. valida o `.env.local` e a conexão com o Atlas;
+2. abre `vercel login` na primeira vez, se necessário;
+3. vincula o projeto `navozcoin` (ou `VERCEL_PROJECT`);
+4. envia `MONGODB_URI`, `MONGODB_DB`, `APP_ORIGIN` e `APP_TIMEZONE` para **Production** e **Preview**;
+5. faz o deploy de produção;
+6. consulta `/api/health` e confirma que o Atlas respondeu.
+
+Não é necessário abrir **Settings → Environment Variables**.
+
+Se usar domínio próprio, ajuste `PRODUCTION_ORIGIN` no `.env.local` e rode `npm run deploy` novamente.
+
+### Primeiro deploy / autenticação
+
+A única etapa interativa é o login na Vercel, na primeira execução. Se o script não conseguir vincular o projeto, rode:
+
+```bash
+npx vercel@65.11.0 link
+npm run deploy
+```
+
+### A única configuração externa: Network Access do Atlas
+
+A Vercel usa IPs dinâmicos. No MongoDB Atlas, em **Network Access**, permita `0.0.0.0/0` (ou use IPs estáticos/Secure Compute). Sem isso, a URI e as variáveis estarão corretas, mas o Atlas recusará a conexão da Vercel. O health check do deploy identifica esse caso como `ATLAS_UNREACHABLE` e mostra a instrução.
+
+### Se aparecer 503 em `/api/auth/login`
+
+Consulte:
+
+```text
+https://SEU-DOMINIO/api/health
+```
+
+A resposta agora diferencia os dois problemas:
+
+```json
+{ "checks": { "mongodbUriConfigured": true, "database": "navozcoin", "atlasReachable": false },
+  "error": { "reason": "ATLAS_UNREACHABLE" } }
+```
+
+- `MONGODB_URI_MISSING` → rode `npm run deploy` para enviar as variáveis.
+- `ATLAS_UNREACHABLE` → libere `0.0.0.0/0` no Network Access do Atlas.
+- `ok: true` → banco conectado; o login funciona.
+
+> Deploy automático por integração Git **não** executa o envio de variáveis. Para o fluxo sem configuração manual, publique com `npm run deploy`.
 
 ### Como a rota funciona
 
@@ -339,12 +381,15 @@ A finalização de evento credita cada presente em uma transação individual e 
 │   ├── core.js                # auth, CSRF, rate limit, validação, auditoria
 │   └── db.js                  # conexão, índices, transações
 ├── scripts/
+│   ├── dev-server.js          # localhost sem Vercel CLI (somente dev)
+│   ├── deploy.js              # envia env + deploy + health check
 │   ├── seed.js                # dados fictícios
 │   ├── check.js               # diagnóstico de consistência
 │   └── load-env.js            # leitor de .env.local para scripts
 ├── docs/
 │   └── collections.md         # modelagem das coleções e índices
 ├── .env.example
+├── .env.local                 # NÃO versionado; credenciais locais
 ├── vercel.json
 ├── package.json
 └── README.md
@@ -356,7 +401,9 @@ A finalização de evento credita cada presente em uma transação individual e 
 
 | Sintoma | Causa provável | Correção |
 |---|---|---|
-| 503 “Banco de dados indisponível” | URI inválida, usuário/senha ou IP não liberado | Revise `MONGODB_URI` e Network Access no Atlas |
+| 503 em `/api/auth/login` | variáveis não enviadas à Vercel ou Atlas bloqueando o IP | abra `/api/health`; rode `npm run deploy` e/ou libere `0.0.0.0/0` no Atlas |
+| `/api/health` com `MONGODB_URI_MISSING` | deploy sem as variáveis de ambiente | `npm run deploy` (envia automaticamente) |
+| `/api/health` com `ATLAS_UNREACHABLE` | Network Access do Atlas não permite a Vercel | libere `0.0.0.0/0` no Atlas |
 | 403 “Origem não autorizada” | `APP_ORIGIN` não corresponde à URL acessada | Ajuste a variável e faça novo deploy |
 | 403 “Token de segurança inválido” | página aberta há muito tempo / CSRF expirado | recarregue e entre novamente |
 | 401 ao navegar | sessão expirada (8h) | faça login novamente |
@@ -379,7 +426,7 @@ A finalização de evento credita cada presente em uma transação individual e 
 
 ## 15. Checklist pós-deploy
 
-- [ ] `MONGODB_URI`, `MONGODB_DB`, `APP_ORIGIN` configurados na Vercel.
+- [ ] `npm run deploy` concluído e `/api/health` retornando `ok: true`.
 - [ ] `npm run check` sem divergências.
 - [ ] Login com o administrador do seed.
 - [ ] Senha padrão alterada.

@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+node_modules
+.npm-cache
+.vercel
+shots
+.chrome-profile
+*.log
+*.png
+.tmp-*
+.DS_Store
+Thumbs.db
