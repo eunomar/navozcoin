@@ -267,8 +267,21 @@ Por robustez, o front-end também envia os cabeçalhos `X-Navoz-Route` e `X-Navo
 - módulo dedicado com o total de cartões de roubo por membro;
 - busca, filtros por status e ordenação por quantidade;
 - atualização manual do total pelo administrador autorizado, com observação opcional;
+- campo opcional para creditar pontos ao membro no mesmo momento;
+- cartões + pontos gravados na mesma transação atômica, com idempotência;
+- o crédito exige permissão de gerenciar **Pontuação** (além de gerenciar Cartões de Roubo);
+- pontos entram na carteira, no total conquistado e no ranking da temporada ativa;
 - registro do administrador e da data da última atualização;
 - auditoria de cada alteração.
+
+### Área do Membro (ranking público)
+- página pública em `/area-do-membro` (ou `/#/area-do-membro`), sem login;
+- ranking calculado **exclusivamente pelo saldo disponível** de cada membro;
+- pontos reservados em resgates ou já gastos não entram na classificação;
+- pódio dos três primeiros, busca e classificação completa;
+- exibe apenas nickname, avatar, cargo, saldo disponível e eventos; não expõe reservas, gastos ou dados administrativos;
+- botão **Copiar ranking TXT** com fallback para download do arquivo;
+- endpoint público com rate limit e sem autenticação.
 
 ### Administração de administradores
 - o administrador principal (`owner`) cria administradores secundários;
@@ -324,6 +337,8 @@ Por robustez, o front-end também envia os cabeçalhos `X-Navoz-Route` e `X-Navo
 - validação de `Origin` nas requisições de escrita;
 - rate limit persistido no MongoDB para login (IP + usuário) e operações administrativas;
 - autenticação e autorização verificadas em todas as rotas administrativas;
+- área pública expõe somente dados de ranking, nunca carteira ou informações administrativas;
+- endpoint público protegido por rate limit por IP;
 - RBAC por módulo (`view` / `manage`) validado no servidor em cada endpoint;
 - criação e edição de administradores exclusiva do `owner`;
 - sessões invalidadas ao desativar um administrador ou redefinir sua senha;
@@ -345,6 +360,7 @@ Todas as rotas administrativas exigem sessão. `POST`, `PATCH` e `DELETE` també
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/api/health` | saúde da função |
+| `GET` | `/api/public/area-membro` | ranking público por saldo disponível |
 | `POST` | `/api/auth/login` | login |
 | `GET` | `/api/auth/me` | sessão atual + CSRF |
 | `POST` | `/api/auth/logout` | logout |

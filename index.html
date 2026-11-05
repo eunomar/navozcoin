@@ -718,9 +718,50 @@
           </div>
         </div>
 
+        <a href="#/area-do-membro" class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[.025] px-4 py-3 hover:border-gold/25 hover:bg-gold/[.035] transition group">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 grid place-items-center"><i data-lucide="trophy" class="w-3.5 h-3.5 text-gold"></i></div>
+            <div>
+              <div class="text-[11px] font-semibold text-slate-200 group-hover:text-white">Área do Membro</div>
+              <div class="text-[9px] text-slate-600">Ranking público da família</div>
+            </div>
+          </div>
+          <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-slate-600 group-hover:text-gold transition"></i>
+        </a>
+
         <p class="mt-7 text-center text-[10px] text-slate-600">NavozCoin © <span id="login-year"></span> — construído para famílias competitivas.</p>
       </div>
     </div>
+  </section>
+
+  <!-- ÁREA PÚBLICA DO MEMBRO -->
+  <section id="member-area-view" class="min-h-screen relative z-[1]" hidden>
+    <div class="app-bg-orb" style="width: 500px; height: 500px; background: rgba(212,175,55,.07); top: -180px; right: 5%;"></div>
+    <div class="app-bg-orb" style="width: 480px; height: 480px; background: rgba(124,58,237,.12); bottom: -180px; left: 0;"></div>
+
+    <header class="border-b border-white/7 bg-[#07070b]/75 backdrop-blur-xl sticky top-0 z-20">
+      <div class="max-w-6xl mx-auto px-5 sm:px-8 h-[76px] flex items-center justify-between gap-4">
+        <a href="#/area-do-membro" class="flex items-center gap-3">
+          <div class="logo-mark"><span>N</span></div>
+          <div>
+            <div class="font-logo text-[15px] tracking-[.16em] text-white">NAVOZ<span class="text-gold">COIN</span></div>
+            <div class="text-[8px] tracking-[.3em] text-slate-500 font-semibold mt-0.5">ÁREA DO MEMBRO</div>
+          </div>
+        </a>
+        <div class="flex items-center gap-2">
+          <a href="#/dashboard" class="btn btn-ghost btn-sm"><i data-lucide="lock-keyhole"></i><span class="hidden sm:inline">Acesso administrativo</span><span class="sm:hidden">Painel</span></a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
+      <div id="member-area-content"></div>
+    </main>
+
+    <footer class="max-w-6xl mx-auto px-5 sm:px-8 py-8 border-t border-white/6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[9.5px] text-slate-600">
+      <span>NavozCoin — Área do Membro</span>
+      <span>Ranking público atualizado em tempo real.</span>
+    </footer>
   </section>
 
   <!-- APP -->
@@ -766,6 +807,7 @@
         <div class="nav-section" data-nav-section>Sistema</div>
         <a href="#/audit" data-nav="audit" data-permission="audit" class="nav-item"><i data-lucide="scroll-text"></i><span>Auditoria</span></a>
         <a href="#/admins" data-nav="admins" data-owner-only class="nav-item"><i data-lucide="shield-check"></i><span>Administradores</span></a>
+        <a href="#/area-do-membro" data-public-link class="nav-item"><i data-lucide="trophy"></i><span>Área do Membro</span><span class="ml-auto text-[8px] uppercase tracking-wide text-gold/60">público</span></a>
       </nav>
 
       <div class="p-3 border-t border-white/6">
@@ -878,6 +920,9 @@
         redemptionsFilter: 'all',
         rankingPeriod: 'general',
         rankingSeason: '',
+        publicArea: null,
+        publicAreaSearch: '',
+        publicAreaToken: 0,
         auditPage: 1,
         auditSearch: '',
         auditEntity: '',
@@ -1533,6 +1578,7 @@
       function showLogin() {
         $('#boot-screen').hidden = true;
         $('#app-shell').hidden = true;
+        $('#member-area-view').hidden = true;
         $('#login-view').hidden = false;
         document.body.classList.remove('overflow-hidden');
         closeDrawer();
@@ -1546,6 +1592,7 @@
       function showApp() {
         $('#boot-screen').hidden = true;
         $('#login-view').hidden = true;
+        $('#member-area-view').hidden = true;
         $('#app-shell').hidden = false;
         setAdminUI(state.admin);
         updateSeasonUI(state.activeSeason);
@@ -3130,10 +3177,13 @@
 
       function openRobberyModal(member) {
         if (!canManage('robbery')) return;
+        const canCreditPoints = canManage('points') && member.status === 'active';
+        const pointsAllowed = member.status === 'active';
+        const idempotency = makeIdempotencyKey('robbery');
         const handle = openModal({
           title: 'Atualizar cartões de roubo',
           subtitle: `${member.nickname} · ${member.playerId}`,
-          size: 'max-w-lg',
+          size: 'max-w-xl',
           body: `
             <form id="robbery-form" class="space-y-4" novalidate>
               <div class="rounded-xl border border-gold/18 bg-gold/[.04] p-4 flex items-center justify-between gap-4">
@@ -3141,7 +3191,7 @@
                   <div class="text-[9px] uppercase tracking-[.14em] text-slate-500 font-semibold">Total atual</div>
                   <div class="font-display text-3xl font-bold text-gold mt-1">${fmtNum(member.robberyCards)}</div>
                 </div>
-                <div class="text-right text-[10px] text-slate-500 max-w-[180px] leading-relaxed">
+                <div class="text-right text-[10px] text-slate-500 max-w-[190px] leading-relaxed">
                   ${member.robberyCardsUpdatedAt ? `Última atualização em ${fmtDateTime(member.robberyCardsUpdatedAt)}` : 'Este membro ainda não teve o total atualizado.'}
                 </div>
               </div>
@@ -3158,6 +3208,34 @@
                 <button type="button" class="btn btn-ghost btn-sm" data-robbery-delta="1">+1</button>
                 <button type="button" class="btn btn-ghost btn-sm" data-robbery-delta="5">+5</button>
               </div>
+
+              <div class="rounded-xl border border-emerald-500/18 bg-emerald-500/[.035] p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <label class="field-label !mb-0" for="robbery-points">Pontos a creditar</label>
+                    <p class="text-[9.5px] text-slate-500 mt-1">${canCreditPoints ? 'Opcional. O crédito entra na carteira e no ranking.' : pointsAllowed ? 'Você não tem permissão para creditar pontos; apenas os cartões serão atualizados.' : 'Membros arquivados não podem receber pontos.'}</p>
+                  </div>
+                  <span class="badge badge-green !text-[8px]"><i data-lucide="wallet"></i>Ledger</span>
+                </div>
+                ${canCreditPoints ? `
+                  <div class="grid sm:grid-cols-[1fr_auto] gap-3 items-end mt-3">
+                    <div class="relative">
+                      <input id="robbery-points" type="number" min="0" max="100000000" step="1" class="input !text-lg font-display font-bold pr-12" value="0">
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-300">PTS</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                      ${[50, 100, 250, 500].map((value) => `<button type="button" class="btn btn-ghost btn-sm" data-robbery-points-quick="${value}">+${value}</button>`).join('')}
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-emerald-500/12 text-[10.5px]">
+                    <span class="text-slate-500">Saldo atual <strong class="text-slate-300">${fmtPoints(member.balance)}</strong></span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-600"></i>
+                    <span class="text-slate-500">Após crédito <strong id="robbery-balance-after" class="text-emerald-300">${fmtPoints(member.balance)}</strong></span>
+                  </div>
+                  <p class="text-[9px] text-slate-600 mt-2">A atualização dos cartões e o crédito são gravados juntos na mesma transação.</p>
+                ` : ''}
+              </div>
+
               <div>
                 <label class="field-label" for="robbery-note">Observação</label>
                 <textarea id="robbery-note" class="textarea" maxlength="300" placeholder="Opcional. Ex.: cartões adquiridos no evento..."></textarea>
@@ -3165,7 +3243,7 @@
             </form>`,
           footer: `
             <button type="button" class="btn btn-ghost" data-modal-close>Cancelar</button>
-            <button type="button" class="btn btn-gold" id="robbery-submit"><i data-lucide="save"></i> Salvar total</button>`,
+            <button type="button" class="btn btn-gold" id="robbery-submit"><i data-lucide="save"></i> Salvar atualização</button>`,
         });
 
         const input = $('#robbery-total', handle.layer);
@@ -3175,21 +3253,54 @@
             input.value = String(next);
           });
         });
+
+        const pointsInput = $('#robbery-points', handle.layer);
+        const balanceAfter = $('#robbery-balance-after', handle.layer);
+        const updatePointsPreview = () => {
+          if (!pointsInput || !balanceAfter) return;
+          const amount = Number(pointsInput.value) || 0;
+          balanceAfter.textContent = fmtPoints(Number(member.balance || 0) + Math.max(0, amount));
+        };
+        if (pointsInput) {
+          pointsInput.addEventListener('input', updatePointsPreview);
+          $$('[data-robbery-points-quick]', handle.layer).forEach((button) => {
+            button.addEventListener('click', () => {
+              pointsInput.value = button.dataset.robberyPointsQuick;
+              updatePointsPreview();
+            });
+          });
+        }
+
         const submit = $('#robbery-submit', handle.layer);
         submit.addEventListener('click', async () => {
           const total = Number(input.value);
+          const points = pointsInput ? Number(pointsInput.value) || 0 : 0;
           if (!Number.isInteger(total) || total < 0) {
             toast('Informe um total inteiro maior ou igual a zero.', 'warning');
             return;
           }
+          if (!Number.isInteger(points) || points < 0) {
+            toast('Informe uma quantidade inteira de pontos maior ou igual a zero.', 'warning');
+            return;
+          }
+          if (points > 0 && !canCreditPoints) {
+            toast('Seu administrador não tem permissão para creditar pontos.', 'warning');
+            return;
+          }
           setButtonBusy(submit, true, 'Salvando...');
           try {
-            await api(`/members/${encodeURIComponent(member.id)}/robbery-cards`, {
+            const result = await api(`/members/${encodeURIComponent(member.id)}/robbery-cards`, {
               method: 'PATCH',
-              body: { total, note: $('#robbery-note', handle.layer).value.trim() },
+              body: {
+                total,
+                points,
+                note: $('#robbery-note', handle.layer).value.trim(),
+                idempotencyKey: idempotency,
+              },
             });
             handle.close();
-            toast(`Cartões de roubo de ${member.nickname} atualizados para ${fmtNum(total)}.`, 'success');
+            const pointsText = points > 0 ? ` + ${fmtNum(points)} pontos creditados` : '';
+            toast(`Cartões de roubo de ${member.nickname} atualizados para ${fmtNum(total)}${pointsText}.`, 'success');
             renderRobberyCards();
           } catch (error) {
             toast(error.message, 'error');
@@ -5018,6 +5129,246 @@
       }
 
       /* ------------------------------------------------------------------ */
+      /* Área pública do membro                                             */
+      /* ------------------------------------------------------------------ */
+
+      function isMemberAreaHash() {
+        return /^#\/area-do-membro\/?$/.test(location.hash);
+      }
+
+      async function showMemberArea() {
+        const token = ++state.publicAreaToken;
+        state.publicAreaSearch = '';
+        $('#boot-screen').hidden = true;
+        $('#login-view').hidden = true;
+        $('#app-shell').hidden = true;
+        $('#member-area-view').hidden = false;
+        closeSidebar();
+        closeDrawer();
+        $('#modal-root').innerHTML = '';
+        document.body.classList.remove('overflow-hidden');
+        document.title = 'Área do Membro — NavozCoin';
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        $('#member-area-content').innerHTML = `
+          <div class="fade-up">
+            <div class="text-center max-w-2xl mx-auto mb-9">
+              <div class="skeleton h-5 w-36 mx-auto mb-4"></div>
+              <div class="skeleton h-12 w-80 max-w-full mx-auto mb-3"></div>
+              <div class="skeleton h-3.5 w-96 max-w-full mx-auto"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-5">
+              ${Array.from({ length: 3 }).map(() => '<div class="panel p-4 h-24"><div class="skeleton h-8 w-8 mb-3"></div><div class="skeleton h-3 w-16"></div></div>').join('')}
+            </div>
+            <div class="panel h-[420px] p-6"><div class="skeleton h-4 w-40 mb-6"></div><div class="skeleton h-64 w-full"></div></div>
+          </div>`;
+        refreshIcons();
+
+        try {
+          const data = await api('/public/area-membro', { silent: true });
+          if (token !== state.publicAreaToken || !isMemberAreaHash()) return;
+          state.publicArea = data;
+          renderMemberArea();
+        } catch (error) {
+          if (token !== state.publicAreaToken) return;
+          $('#member-area-content').innerHTML = `
+            <div class="min-h-[60vh] grid place-items-center">
+              <div class="panel p-8 max-w-md w-full text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 border border-red-500/20 grid place-items-center text-red-300 mb-5"><i data-lucide="wifi-off" class="w-6 h-6"></i></div>
+                <h3 class="font-display text-2xl font-bold text-white">Ranking indisponível</h3>
+                <p class="text-[12px] text-slate-500 mt-2">${esc(error.message)}</p>
+                <div class="flex justify-center gap-2 mt-5">
+                  <button type="button" class="btn btn-ghost" data-public-retry><i data-lucide="refresh-cw"></i> Tentar novamente</button>
+                  <a href="#/dashboard" class="btn btn-primary">Acessar painel</a>
+                </div>
+              </div>
+            </div>`;
+          refreshIcons();
+          $('[data-public-retry]')?.addEventListener('click', showMemberArea);
+        }
+      }
+
+      function publicAreaEntries() {
+        return (state.publicArea && state.publicArea.entries) || [];
+      }
+
+      function renderMemberArea() {
+        const data = state.publicArea;
+        if (!data) return;
+        const entries = data.entries || [];
+        const leader = entries[0];
+        const top = [entries[1], entries[0], entries[2]];
+
+        $('#member-area-content').innerHTML = `
+          <section class="text-center max-w-3xl mx-auto mb-8 fade-up">
+            <div class="inline-flex items-center gap-2 rounded-full border border-gold/25 bg-gold/[.06] px-3.5 py-1.5 text-[9px] font-bold tracking-[.18em] text-gold uppercase">
+              <span class="pulse-dot"></span> Ranking oficial da família
+            </div>
+            <h1 class="font-display text-[38px] sm:text-[54px] font-bold leading-[.95] text-white mt-4">Área do <span class="text-transparent bg-clip-text bg-gradient-to-r from-neon-light to-gold">Membro</span></h1>
+            <p class="text-[12px] sm:text-[13px] text-slate-500 mt-3 max-w-xl mx-auto leading-relaxed">A classificação usa somente os pontos disponíveis na carteira de cada membro. Atualizado em tempo real.</p>
+            <div class="mt-5 inline-flex items-center gap-2 rounded-lg border border-emerald-500/18 bg-emerald-500/[.04] px-3 py-2 text-[10.5px] text-slate-400">
+              <i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-300"></i>Ranking por pontos disponíveis
+            </div>
+          </section>
+
+          <div class="grid grid-cols-3 gap-2.5 sm:gap-3 mb-5 fade-up delay-1">
+            ${miniMetric('Membros ativos', fmtNum(data.totalMembers), 'users', 'purple')}
+            ${miniMetric('Maior saldo', leader ? esc(leader.nickname) : '—', 'crown', 'gold')}
+            ${miniMetric('Saldo do líder', leader ? fmtCompact(leader.points) : '0', 'wallet', 'green')}
+          </div>
+
+          <section class="panel p-4 sm:p-6 fade-up delay-2">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
+              <div class="flex items-center gap-2">
+                <h2 class="font-display text-lg font-bold text-white">Classificação por saldo disponível</h2>
+                <span class="badge badge-green"><i data-lucide="wallet"></i>Disponível</span>
+              </div>
+              <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                <div class="relative flex-1 sm:w-64">
+                  <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600"></i>
+                  <input id="public-ranking-search" class="input !py-2.5 pl-9" placeholder="Buscar membro..." value="${esc(state.publicAreaSearch)}">
+                </div>
+                <button type="button" id="copy-ranking" class="btn btn-gold btn-sm !py-2.5" ${entries.length ? '' : 'disabled'}>
+                  <i data-lucide="copy"></i> Copiar ranking TXT
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div class="text-[10.5px] text-slate-500">Somente o saldo disponível conta. Reservas e resgates não entram.</div>
+              <div class="text-[9px] text-slate-600 flex items-center gap-1"><i data-lucide="clock-3" class="w-3 h-3"></i>Atualizado em ${fmtDateTime(data.generatedAt)}</div>
+            </div>
+
+            ${entries.length ? `
+              <div class="podium-grid max-w-3xl mx-auto my-6">
+                ${top.map((entry, index) => {
+                  if (!entry) return `<div class="podium-card ${index === 1 ? 'first' : index === 0 ? 'second' : 'third'} opacity-20"><div class="podium-avatar avatar xl"><span>—</span></div><div class="text-[10px] text-slate-600">Sem posição</div></div>`;
+                  const rank = entry.position;
+                  const positionClass = rank === 1 ? 'first' : rank === 2 ? 'second' : 'third';
+                  return `
+                    <div class="podium-card ${positionClass}">
+                      ${rank === 1 ? '<div class="podium-crown"><i data-lucide="crown"></i></div>' : ''}
+                      <div class="absolute top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold ${rank === 1 ? 'text-gold' : 'text-slate-500'}">#${rank}</div>
+                      ${avatarHTML(entry, 'xl', 'podium-avatar')}
+                      <div class="podium-name text-[13px] font-semibold text-white truncate px-1">${esc(entry.nickname)}</div>
+                      <div class="text-[9px] text-slate-500 truncate px-1">${esc(entry.role)}</div>
+                      <div class="podium-points mt-2 font-display text-[18px] font-bold ${rank === 1 ? 'text-gold' : 'text-emerald-300'}">${fmtNum(entry.points)} <span class="text-[9px] opacity-60">pts</span></div>
+                    </div>`;
+                }).join('')}
+              </div>` : ''}
+
+            <div class="flex items-center justify-between gap-2 mt-5 mb-2">
+              <h3 class="font-display text-base font-bold text-white">Classificação</h3>
+              <span class="text-[9.5px] text-slate-600">${entries.length} membro(s)</span>
+            </div>
+            <div id="public-ranking-table"></div>
+          </section>
+
+          <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-[9.5px] text-slate-600">
+            <span>Ranking calculado exclusivamente pelo saldo disponível. Pontos reservados ou já resgatados não entram.</span>
+            <a href="#/dashboard" class="text-neon-light hover:text-white font-semibold inline-flex items-center gap-1">Acesso administrativo <i data-lucide="arrow-up-right" class="w-3 h-3"></i></a>
+          </div>`;
+
+        refreshIcons();
+        refreshPublicRankingTable();
+
+        $('#public-ranking-search').addEventListener('input', (event) => {
+          state.publicAreaSearch = event.target.value;
+          refreshPublicRankingTable();
+        });
+        $('#copy-ranking').addEventListener('click', () => {
+          copyPublicRanking(entries);
+        });
+      }
+
+      function refreshPublicRankingTable() {
+        const container = $('#public-ranking-table');
+        if (!container) return;
+        const query = state.publicAreaSearch.trim().toLowerCase();
+        const entries = publicAreaEntries().filter((entry) => !query || `${entry.nickname} ${entry.role}`.toLowerCase().includes(query));
+        if (!entries.length) {
+          container.innerHTML = emptyState(
+            state.publicAreaSearch ? 'Nenhum membro corresponde à busca.' : 'Nenhum membro ativo no ranking ainda.',
+            { icon: 'trophy', title: state.publicAreaSearch ? 'Sem resultados' : 'Ranking vazio' }
+          );
+          refreshIcons();
+          return;
+        }
+        container.innerHTML = `
+          <div class="overflow-x-auto">
+            <table class="data-table">
+              <thead><tr>
+                <th class="!pl-5 w-12">#</th>
+                <th>Membro</th>
+                <th class="hidden sm:table-cell">Cargo</th>
+                <th class="text-right">Disponível</th>
+                <th class="text-right hidden md:table-cell">Eventos</th>
+              </tr></thead>
+              <tbody>
+                ${entries.map((entry) => `
+                  <tr>
+                    <td class="!pl-5"><span class="inline-grid place-items-center w-7 h-7 rounded-lg border text-[10px] font-bold ${entry.position === 1 ? 'border-gold/30 bg-gold/10 text-gold' : entry.position <= 3 ? 'border-white/10 bg-white/5 text-slate-300' : 'border-transparent text-slate-600'}">${entry.position}</span></td>
+                    <td>
+                      <div class="flex items-center gap-2.5">
+                        ${avatarHTML(entry, 'sm')}
+                        <span class="text-[12px] font-semibold text-white truncate">${esc(entry.nickname)}</span>
+                      </div>
+                    </td>
+                    <td class="hidden sm:table-cell"><span class="badge badge-gray">${esc(entry.role)}</span></td>
+                    <td class="text-right"><span class="text-[12px] font-bold ${entry.position <= 3 ? 'text-gold' : 'text-neon-light'}">${fmtNum(entry.points)}</span> <span class="text-[8px] text-slate-600">pts</span></td>
+                    <td class="text-right hidden md:table-cell text-[11px] text-slate-500">${entry.events}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        refreshIcons();
+      }
+
+      async function copyPublicRanking(entries) {
+        const lines = [
+          'NAVOZCOIN — ÁREA DO MEMBRO',
+          'Ranking por pontos disponíveis',
+          `Atualizado em: ${fmtDateTime(state.publicArea.generatedAt)}`,
+          '',
+          ...entries.map((entry) => `${entry.position}. ${entry.nickname} — ${fmtNum(entry.points)} pts disponíveis`),
+        ];
+        const text = `${lines.join('\n')}\n`;
+        const button = $('#copy-ranking');
+        const original = button ? button.innerHTML : '';
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const area = document.createElement('textarea');
+            area.value = text;
+            area.style.position = 'fixed';
+            area.style.opacity = '0';
+            document.body.appendChild(area);
+            area.select();
+            const copied = document.execCommand('copy');
+            area.remove();
+            if (!copied) throw new Error('copy failed');
+          }
+          if (button) {
+            button.innerHTML = '<i data-lucide="check"></i> Ranking copiado!';
+            refreshIcons();
+            setTimeout(() => {
+              if (button) button.innerHTML = original;
+              refreshIcons();
+            }, 2200);
+          }
+          toast('Lista do ranking copiada em formato TXT.', 'success');
+        } catch {
+          const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'ranking-navozcoin-disponivel.txt';
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(link.href), 3000);
+          toast('Download do arquivo TXT iniciado.', 'info');
+        }
+      }
+
+      /* ------------------------------------------------------------------ */
       /* Roteador e boot                                                    */
       /* ------------------------------------------------------------------ */
 
@@ -5230,7 +5581,16 @@
         }, true);
 
         window.addEventListener('hashchange', () => {
-          if (state.admin) renderRoute();
+          if (isMemberAreaHash()) {
+            showMemberArea();
+            return;
+          }
+          if (state.admin) {
+            showApp();
+            renderRoute();
+          } else {
+            showLogin();
+          }
         });
       }
 
@@ -5291,9 +5651,17 @@
 
       async function boot() {
         $('#login-year').textContent = new Date().getFullYear();
+        if (window.location.pathname.replace(/\/+$/, '') === '/area-do-membro') {
+          history.replaceState(null, '', '/#/area-do-membro');
+        }
         bindLogin();
         bindShell();
         refreshIcons();
+
+        if (isMemberAreaHash()) {
+          await showMemberArea();
+          return;
+        }
 
         try {
           const me = await api('/auth/me', { silent: true });

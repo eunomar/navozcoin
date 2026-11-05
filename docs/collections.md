@@ -189,6 +189,7 @@ Ledger append-only. É a fonte de verdade financeira e de ranking.
 Chaves de idempotência usadas:
 - evento: `event:<eventId>:member:<memberId>`
 - manual: UUID/chave enviada pelo cliente
+- cartões de roubo com crédito: chave `robbery:<uuid>` no `manual_add`
 - resgate: `redemption:<id>:reserve` / `:approve` / `:refund`
 
 Nenhum endpoint atualiza ou apaga lançamentos existentes.
@@ -305,7 +306,7 @@ Trilha append-only de operações administrativas.
 - `entity` — `{ entityType: 1, entityId: 1, createdAt: -1 }`
 
 Ações novas incluídas:
-- `robbery_cards.updated` — alteração manual do total de cartões de roubo;
+- `robbery_cards.updated` — alteração manual do total de cartões de roubo (e, quando aplicável, crédito de pontos no mesmo registro);
 - `admin.created`, `admin.updated`, `admin.deactivated`, `admin.reactivated` — gestão de administradores.
 
 Não há endpoint de update/delete.

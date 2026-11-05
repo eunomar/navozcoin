@@ -25,6 +25,8 @@ const {
   escapeRegex,
   idempotencyKey,
   pagination,
+  clientIp,
+  hitRateLimit,
   applyLoginRateLimit,
   applySessionRateLimit,
   authenticate,
@@ -2744,21 +2746,58 @@ async function updateRobberyCards(req, res, id) {
     min: 0,
     max: 1_000_000_000,
   });
+  const points = intField(body.points === undefined ? 0 : body.points, 'Pontos a creditar', {
+    min: 0,
+    max: 100_000_000,
+  });
+  if (points > 0 && !hasPermission(auth.admin, 'points', 'manage')) {
+    throw new HttpError(
+      403,
+      'MODULE_FORBIDDEN',
+      'Para creditar pontos é necessário ter permissão de gerenciar o módulo Pontuação.'
+    );
+  }
   const note = stringField(body.note || '', 'Observação', {
     min: 0,
     max: 300,
     optional: true,
   });
-  const { members } = await collections();
+  const key = idempotencyKey(body.idempotencyKey, 'robbery');
+  const { members, pointTransactions, seasons } = await collections();
 
-  const result = await withTransaction(async (session) => {
-    const member = await members.findOne({ _id: memberId }, { session });
-    if (!member) throw new HttpError(404, 'MEMBER_NOT_FOUND', 'Membro não encontrado.');
-    const previous = Number(member.robberyCards || 0);
-    const now = new Date();
-    const updated = await members.findOneAndUpdate(
-      { _id: memberId },
-      {
+  if (points > 0) {
+    const duplicate = await pointTransactions.findOne({ idempotencyKey: key });
+    if (duplicate) {
+      const member = await members.findOne({ _id: memberId });
+      return json(res, 200, {
+        duplicate: true,
+        member: serializeMember(member),
+        previous: member ? member.robberyCards : total,
+        total,
+        pointsAdded: Number(duplicate.amount || 0),
+        transaction: serializeTransaction(duplicate),
+      });
+    }
+  }
+
+  try {
+    const result = await withTransaction(async (session) => {
+      const member = await members.findOne({ _id: memberId }, { session });
+      if (!member) throw new HttpError(404, 'MEMBER_NOT_FOUND', 'Membro não encontrado.');
+      if (points > 0 && member.status !== 'active') {
+        throw new HttpError(
+          409,
+          'MEMBER_ARCHIVED',
+          'Membros arquivados não podem receber crédito de pontos.'
+        );
+      }
+
+      const previous = Number(member.robberyCards || 0);
+      const now = new Date();
+      const activeSeason = points > 0
+        ? await seasons.findOne({ status: 'active' }, { session })
+        : null;
+      const update = {
         $set: {
           robberyCards: total,
           robberyCardsUpdatedAt: now,
@@ -2766,27 +2805,88 @@ async function updateRobberyCards(req, res, id) {
           robberyCardsUpdatedByName: auth.admin.displayName || auth.admin.username,
           updatedAt: now,
         },
-      },
-      { session, returnDocument: 'after' }
-    );
+      };
+      if (points > 0) {
+        update.$inc = { balance: points, totalEarned: points };
+      }
 
-    await audit({
-      admin: auth.admin,
-      action: 'robbery_cards.updated',
-      entityType: 'member',
-      entityId: memberId,
-      description:
-        `Cartões de roubo de ${member.nickname}: ${previous} → ${total}.` +
-        (note ? ` ${note}` : ''),
-      metadata: { previous, total, note },
-      req,
-      session,
+      const updated = await members.findOneAndUpdate({ _id: memberId }, update, {
+        session,
+        returnDocument: 'after',
+      });
+
+      let transaction = null;
+      if (points > 0) {
+        const tx = {
+          memberId,
+          type: 'manual_add',
+          amount: points,
+          balanceDelta: points,
+          reservedDelta: 0,
+          spentDelta: 0,
+          rankingDelta: points,
+          description: 'Crédito ao atualizar cartões de roubo',
+          reason: note || 'Crédito vinculado à atualização de cartões de roubo.',
+          adminId: auth.admin._id,
+          adminName: auth.admin.displayName || auth.admin.username,
+          seasonId: activeSeason ? activeSeason._id : null,
+          idempotencyKey: key,
+          balanceAfter: updated.balance,
+          reservedAfter: updated.reserved,
+          createdAt: now,
+        };
+        const inserted = await pointTransactions.insertOne(tx, { session });
+        transaction = { ...tx, _id: inserted.insertedId };
+      }
+
+      await audit({
+        admin: auth.admin,
+        action: 'robbery_cards.updated',
+        entityType: 'member',
+        entityId: memberId,
+        description:
+          `Cartões de roubo de ${member.nickname}: ${previous} → ${total}.` +
+          (points > 0 ? ` Crédito de ${points} ponto(s).` : '') +
+          (note ? ` ${note}` : ''),
+        metadata: {
+          previous,
+          total,
+          note,
+          points,
+          transactionId: transaction ? transaction._id.toString() : null,
+        },
+        req,
+        session,
+      });
+
+      return {
+        duplicate: false,
+        member: serializeMember(updated),
+        previous,
+        total,
+        pointsAdded: points,
+        transaction: transaction ? serializeTransaction(transaction) : null,
+      };
     });
 
-    return { member: serializeMember(updated), previous, total };
-  });
-
-  return json(res, 200, result);
+    return json(res, 200, result);
+  } catch (error) {
+    if (error && error.code === 11000 && points > 0) {
+      const duplicate = await pointTransactions.findOne({ idempotencyKey: key });
+      const member = await members.findOne({ _id: memberId });
+      if (duplicate && member) {
+        return json(res, 200, {
+          duplicate: true,
+          member: serializeMember(member),
+          previous: member.robberyCards,
+          total,
+          pointsAdded: Number(duplicate.amount || 0),
+          transaction: serializeTransaction(duplicate),
+        });
+      }
+    }
+    throw error;
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2969,6 +3069,47 @@ async function updateAdmin(req, res, id) {
   });
 }
 
+/* -------------------------------------------------------------------------- */
+/* Área pública do membro                                                    */
+/* -------------------------------------------------------------------------- */
+
+function publicRankingMember(member) {
+  return {
+    nickname: member.nickname,
+    avatar: member.avatar || '',
+    role: member.role || 'Membro',
+    points: Number(member.balance || 0),
+    events: Number(member.eventsParticipated || 0),
+  };
+}
+
+async function publicMemberArea(req, res) {
+  const limited = await hitRateLimit(`public-area:${clientIp(req)}`, 90, 60 * 1000);
+  if (!limited.allowed) {
+    throw new HttpError(429, 'RATE_LIMITED', 'Muitas consultas. Aguarde um minuto.');
+  }
+
+  const { members } = await collections();
+  const activeMembers = await members
+    .find({ status: 'active' })
+    .sort({ balance: -1, nickname: 1 })
+    .limit(500)
+    .toArray();
+
+  const entries = activeMembers.map((member, index) => ({
+    position: index + 1,
+    ...publicRankingMember(member),
+  }));
+
+  return json(res, 200, {
+    family: { name: 'NavozCoin' },
+    basis: 'available_points',
+    entries,
+    totalMembers: activeMembers.length,
+    generatedAt: new Date(),
+  });
+}
+
 async function route(req, res) {
   const method = String(req.method || 'GET').toUpperCase();
   const segments = routeSegments(req);
@@ -3011,6 +3152,11 @@ async function route(req, res) {
         time: new Date(),
       });
     }
+  }
+
+  if (segments[0] === 'public' && segments[1] === 'area-membro' && segments.length === 2) {
+    if (method !== 'GET') methodNotAllowed(res, ['GET']);
+    return publicMemberArea(req, res);
   }
 
   if (segments[0] === 'auth') {
